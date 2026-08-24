@@ -6,7 +6,8 @@
 
 :- module(oaa_run,
           [ oaa_agent_start/3,          % +Name, +Solvables, +Options
-            oaa_agent_run/3             % +Name, +Solvables, +Options
+            oaa_agent_run/3,            % +Name, +Solvables, +Options
+            oaa_agent_loop/0
           ]).
 
 :- use_module('../runtime/com_tcp').
@@ -57,5 +58,14 @@ oaa_agent_run(Name, Solvables, Options) :-
     oaa_agent_start(Name, Solvables, Options),
     (   memberchk(once(true), Options)
     ->  oaa_main_loop([handler(oaa_agent:oaa_handle_event), once(true)])
-    ;   oaa_main_loop([handler(oaa_agent:oaa_handle_event)])
+    ;   oaa_agent_loop
     ).
+
+%!  oaa_agent_loop is det.
+%
+%   Run the event loop with the agent library's event handler installed.  An
+%   agent that did its own setup -- declaring solvables on the facilitator,
+%   installing triggers -- calls this instead of oaa_agent_run/3.
+
+oaa_agent_loop :-
+    oaa_main_loop([handler(oaa_agent:oaa_handle_event)]).

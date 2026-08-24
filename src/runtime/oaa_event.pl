@@ -255,7 +255,15 @@ loop(Handler, Options) :-
 
 turn(Handler) :-
     oaa_get_timeout(Delay),
-    poll_delay(Delay, Timeout),
+    %  Only block on the transport when there is nothing already queued.  A
+    %  single read can yield several terms -- a client that sends two events
+    %  back to back arrives as one batch -- and blocking here with work still
+    %  in the queue would leave the later events unhandled until unrelated
+    %  traffic happened to wake the loop.
+    (   oaa_queue_empty
+    ->  poll_delay(Delay, Timeout)
+    ;   Timeout = 0
+    ),
     oaa_pump(Timeout),
     (   oaa_dequeue(ConnId, Term, _P)
     ->  dispatch(Handler, ConnId, Term)

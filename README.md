@@ -15,21 +15,46 @@ The question the project exists to answer:
 > faithfully with modern implementations, and given an LLM as a reasoning
 > substrate?
 
-## Status: Phase 0 — archaeology
-
-No implementation code yet, by design. The historical record is recovered and
-documented first. Everything currently in this repository lives under
-`research/`.
+## Status
 
 | Phase | | |
 |---|---|---|
-| 0 | Archaeology — recover sources, establish provenance and licensing | **in progress** |
-| 1 | Historical core — ICL, agent model, solvables, Facilitator, Prolog | not started |
+| 0 | Archaeology — recover sources, establish provenance and licensing | **done** |
+| 1 | Historical core — ICL, agent model, solvables, Facilitator, Prolog | **running** |
 | 2 | Agent Development Toolkit | not started |
 | 3 | Examples and compatibility tests | not started |
 | 4 | LLM extension — optional, disabled by default | not started |
 | 5 | Modern interoperability — MCP, A2A | not started |
 | 6 | Documentation and historical comparison | not started |
+
+The core runs in SWI-Prolog. A Facilitator and client agents, each its own
+operating-system process, exchange ICL over TCP: capabilities are declared as
+solvables, matched by unification, ordered by utility and delegated;
+data solvables, ownership, blackboards and triggers all work. 226 tests pass.
+
+Nothing in it has an LLM dependency of any kind, and that is the point —
+`OAA_CLASSIC` is not a mode with the LLM switched off, it is a system that
+does not contain one.
+
+What is deliberately deferred — compound goals, facilitator hierarchies,
+direct connect, meta-agent consultation, time triggers — is listed in
+[`research/compatibility-matrix.md`](research/compatibility-matrix.md).
+
+## Running it
+
+```sh
+make test                     # the whole suite, including a live community
+
+# or start a community by hand
+swipl bin/facilitator.pl -- -write_setup_file setup.pl &
+swipl examples/basic/square_agent.pl -- &
+swipl examples/basic/greet_agent.pl -- &
+swipl examples/basic/client.pl --
+```
+
+The client prints `square(7) = 49`, backtracks over three greetings, and fails
+on a goal nothing can solve. It names no agent, no host and no port — which is
+the whole point of delegation.
 
 ## What Phase 0 established
 
@@ -77,6 +102,14 @@ from.
 ## Repository layout
 
 ```
+src/
+  icl/          terms, tokenizer, parser, writer, types, parameter lists
+  runtime/      com_ transport, event loop, configuration
+  agents/       agent library, solvables, data store, triggers
+  facilitator/  the Facilitator and its delegation rules
+bin/            runnable Facilitator
+examples/       runnable agents
+tests/          225 unit tests plus a live multi-process community
 research/
   sources.md                 citation index and evidence hierarchy
   chronology.md              OAA release history
@@ -85,6 +118,7 @@ research/
   compatibility-matrix.md    historical concept -> oaa-next mapping
   implementation-notes/      per-subsystem behavioural notes
 docs/
+  roadmap/                   phase plans
   historical/                historical and trademark notices
 ```
 

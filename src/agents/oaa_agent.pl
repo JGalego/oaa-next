@@ -36,6 +36,7 @@
 :- use_module('../runtime/oaa_event').
 :- use_module(oaa_solvable).
 :- use_module(oaa_data).
+:- use_module(oaa_trigger).
 
 /** <module> The OAA agent library
 
@@ -114,12 +115,31 @@ oaa_register(ConnId, Name, Solvables, Params) :-
     assertz(my_name(Name)),
     retractall(my_solvable(_)),
     forall(member(S, Normalized), assertz(my_solvable(S))),
+    declare_builtin_solvables,
     public_solvables(Normalized, Public),
     com_send(ConnId, ev_register_solvables(Name, Public, Params)),
     (   oaa_wait_for(ev_registered(LocalId, _Address), 10, _)
     ->  retractall(my_local_id(_)),
         assertz(my_local_id(LocalId))
     ;   throw(oaa_error(registration_timeout))
+    ).
+
+%   Every agent implicitly provides oaa_trigger/5 as a data solvable, which
+%   is how installed triggers become queryable through oaa_Solve like any
+%   other data.  Developer's Guide 4.3.5.
+%
+%   It is declared private, so the facilitator is not told about it and does
+%   not route other agents' trigger queries here.  The Guide does not say
+%   either way; keeping it local is the conservative reading, and is noted as
+%   an open question in research/implementation-notes/facilitator.md.
+
+declare_builtin_solvables :-
+    solvable_list(solvable(oaa_trigger(_T, _C, _A, _P, _I),
+                           [type(data), private(true)], [write(true)]),
+                  [Builtin]),
+    (   my_solvable(solvable(oaa_trigger(_,_,_,_,_), _, _))
+    ->  true
+    ;   assertz(my_solvable(Builtin))
     ).
 
 solvable_list_or_empty([], []) :- !.
@@ -143,12 +163,21 @@ public_solvables(All, Public) :-
 
 oaa_declare(Solvables, Params) :-
     solvable_list(Solvables, Normalized),
-    forall(member(S, Normalized), assertz(my_solvable(S))),
+    %  address(parent) means "declare this on the facilitator", not here: the
+    %  point of a blackboard solvable is that it lives in one shared place.
+    (   declares_on_parent(Params)
+    ->  true
+    ;   forall(member(S, Normalized), assertz(my_solvable(S)))
+    ),
     public_solvables(Normalized, Public),
     (   Public == []
     ->  true
     ;   send_to_parent(ev_post_declare(add, Public, Params))
     ).
+
+declares_on_parent(Params) :-
+    icl_get_param_value(address(A), Params),
+    memberchk(A, [parent, facilitator]).
 
 oaa_undeclare(Solvables, Params) :-
     solvable_list(Solvables, Normalized),
@@ -180,8 +209,32 @@ oaa_solvables(Solvables) :-
 
 send_to_parent(Event) :-
     (   parent_conn(Conn)
-    ->  com_send(Conn, Event)
+    ->  oaa_note_event(send, Conn, Event),
+        com_send(Conn, Event)
     ;   throw(oaa_error(not_connected))
+    ).
+
+%   Trigger actions are run through the callback registry rather than by
+%   oaa_trigger calling this module directly, which would make the dependency
+%   circular.  These two are registered once, at load time.
+
+:- initialization(register_trigger_executors).
+
+register_trigger_executors :-
+    oaa_register_callback(trigger_solve, oaa_agent:trigger_solve_action),
+    oaa_register_callback(trigger_interpret, oaa_agent:trigger_interpret_action).
+
+trigger_solve_action(Goal, Params) :-
+    ignore(oaa_solve(Goal, Params)).
+
+%   oaa_Interpret evaluates an ICL expression.  In Phase 1 the expressions a
+%   trigger action may contain are the library calls themselves, so
+%   interpreting one means recognising it and performing it.
+trigger_interpret_action(Goal) :-
+    (   Goal = oaa_AddData(C, P)   -> ignore(oaa_add_data(C, P))
+    ;   Goal = oaa_RemoveData(C, P)-> ignore(oaa_remove_data(C, P))
+    ;   Goal = oaa_Solve(G, P)     -> ignore(oaa_solve(G, P))
+    ;   ignore(oaa_solve(Goal, []))
     ).
 
 % --------------------------------------------------------------- identity
@@ -401,14 +454,16 @@ apply_data_op_locally(add, Clause, Params, Ok) :-
     (   writable_data_solvable(Clause, S)
     ->  merged_params(S, Params, P2),
         owner_of(Params, Owner),
-        oaa_data_add(Owner, Clause, P2, Ok)
+        oaa_data_add(Owner, Clause, P2, Ok),
+        note_change(Ok, add, Clause)
     ;   Ok = false
     ).
 apply_data_op_locally(remove, Clause, Params, Ok) :-
     (   writable_data_solvable(Clause, _)
     ->  owner_of(Params, Owner),
         oaa_data_remove(Owner, Clause, Params, Count),
-        ( Count > 0 -> Ok = true ; Ok = false )
+        ( Count > 0 -> Ok = true ; Ok = false ),
+        note_change(Ok, remove, Clause)
     ;   Ok = false
     ).
 apply_data_op_locally(replace, replace(C1, C2), Params, Ok) :-
@@ -416,9 +471,18 @@ apply_data_op_locally(replace, replace(C1, C2), Params, Ok) :-
         writable_data_solvable(C2, S2)
     ->  merged_params(S2, Params, P2),
         owner_of(Params, Owner),
-        oaa_data_replace(Owner, C1, C2, P2, Ok)
+        oaa_data_replace(Owner, C1, C2, P2, Ok),
+        note_change(Ok, replace(C1, C2), C1)
     ;   Ok = false
     ).
+
+%   A call to any of the data maintenance procedures causes the agent that
+%   provides the solvable to check its active data triggers, and may result in
+%   one or more of them firing.  Developer's Guide 7.
+
+note_change(true, Operation, Clause) :- !,
+    oaa_note_data_change(Operation, Clause).
+note_change(_, _, _).
 
 writable_data_solvable(Clause, S) :-
     my_solvable(S),
@@ -455,6 +519,11 @@ owner_of(Params, Owner) :-
 %   here, so an agent developer never sees them; anything else goes to the
 %   app_do_event callback, as the Developer's Guide describes.
 
+oaa_handle_event(ConnId, Event) :-
+    %  Every incoming event is offered to the comm triggers before it is
+    %  handled, which is what lets a trigger watch traffic it does not own.
+    oaa_note_event(receive, ConnId, Event),
+    fail.
 oaa_handle_event(ConnId, ev_solve(GoalId, Goal, Params)) :- !,
     solve_for_requester(ConnId, GoalId, Goal, Params).
 oaa_handle_event(_ConnId, ev_update_data(GoalId, Mode, Payload, Params)) :- !,

@@ -49,6 +49,7 @@ start_community :-
 
     spawn(square, [Root, '/examples/basic/square_agent.pl'], [], TmpFile),
     spawn(greet,  [Root, '/examples/basic/greet_agent.pl'],  [], TmpFile),
+    spawn(sensor, [Root, '/examples/multi-agent/sensor_agent.pl'], [], TmpFile),
     %  Agents need a moment to connect and register; the client waits for the
     %  capabilities it needs, so this only has to be long enough to avoid
     %  racing the facilitator's accept.
@@ -81,10 +82,13 @@ stop_community :-
     ;   true
     ).
 
-%   Run the client and capture what it prints.
+%   Run a one-shot agent and capture what it prints.
 run_client(Lines) :-
+    run_program('/examples/basic/client.pl', Lines).
+
+run_program(Relative, Lines) :-
     repo_root(Root),
-    atomic_list_concat([Root, '/examples/basic/client.pl'], Script),
+    atomic_list_concat([Root, Relative], Script),
     workdir(Cwd),
     swipl_path(Swipl),
     process_create(Swipl, [Script, '--'],
@@ -119,5 +123,14 @@ test(multiple_solutions) :-
 test(unsolvable_goal_fails) :-
     run_client(Lines),
     memberchk("unsolvable goal failed, as it should", Lines).
+
+%   A data solvable declared on the facilitator with address(parent) is a
+%   blackboard: one agent writes it, another reads it, and neither knows the
+%   other exists.  Developer's Guide 5.2 and 7.7.
+test(blackboard_is_shared) :-
+    run_program('/examples/multi-agent/reporter.pl', Lines),
+    memberchk("observations: 2", Lines),
+    memberchk("temperature = 21", Lines),
+    memberchk("humidity = 40", Lines).
 
 :- end_tests(community).

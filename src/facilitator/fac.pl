@@ -254,6 +254,16 @@ normalize_incoming(Specs, Solvables) :-
     ;   Solvables = []
     ).
 
+%   An agent may ask its facilitator to declare a data solvable *on the
+%   facilitator*, by including address(parent) in the parameters.  The result
+%   is a shared data predicate readable and writable by all of that
+%   facilitator's clients -- which is how OAA supports a blackboard style of
+%   communication.  Developer's Guide 5.2 and 7.7.
+
+post_declare(_ConnId, Mode, Specs, Params) :-
+    icl_get_param_value(address(A), Params),
+    memberchk(A, [parent, facilitator]), !,
+    declare_on_facilitator(Mode, Specs).
 post_declare(ConnId, Mode, Specs, _Params) :-
     (   agent_entry(ConnId, LocalId, Name, Status, Current, Info)
     ->  normalize_incoming(Specs, Incoming),
@@ -266,6 +276,13 @@ post_declare(ConnId, Mode, Specs, _Params) :-
                      [], _)
     ;   true
     ).
+
+declare_on_facilitator(Mode, Specs) :-
+    normalize_incoming(Specs, Incoming),
+    oaa_solvables(Current),
+    apply_declare(Mode, Current, Incoming, Updated),
+    oaa_agent:retractall(my_solvable(_)),
+    forall(member(S, Updated), oaa_agent:assertz(my_solvable(S))).
 
 apply_declare(add, Current, Incoming, Updated) :-
     append(Current, Incoming, Updated).

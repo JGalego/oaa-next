@@ -4,6 +4,7 @@
 
 :- use_module('../../src/runtime/oaa_event').
 :- use_module('../../src/runtime/com_tcp').
+:- use_module(library(time)).
 
 :- begin_tests(event_queue, [setup(oaa_queue_clear), cleanup(oaa_queue_clear)]).
 
@@ -82,6 +83,26 @@ test(done_callback,
     oaa_register_callback(app_done, [] >>assertz(doned)),
     oaa_main_loop([once(true)]),
     doned.
+
+%  Regression: a turn must not block on the transport while events are
+%  already queued.  One read can yield several terms, so blocking here left
+%  the later ones unhandled until unrelated traffic woke the loop -- which
+%  showed up as an intermittently hanging community.
+test(queued_events_do_not_block,
+     [setup(( oaa_queue_clear, retractall(seen(_)), com_close_all )),
+      cleanup(( oaa_unregister_callback(app_do_event), com_close_all ))]) :-
+    com_listen_at(idle_srv, [address(tcp(localhost, _))], addr(tcp(_, Port))),
+    com_connect(idle_cli, [address(tcp(localhost, Port))], _),
+    com_poll([idle_srv], 2, _), com_accept(idle_srv, _Peer),
+    %  A live, silent connection: pumping with an infinite timeout would
+    %  block here forever.
+    oaa_register_callback(app_do_event, [T, _P]>>assertz(seen(T))),
+    oaa_set_timeout(0),
+    oaa_enqueue(idle_cli, queued(1), 5),
+    catch(call_with_time_limit(3, oaa_main_loop([once(true)])),
+          time_limit_exceeded,
+          fail),
+    seen(queued(1)).
 
 %  oaa_wait_for picks the matching event out of the queue and leaves the rest.
 test(wait_for_matching, [setup(oaa_queue_clear)]) :-
