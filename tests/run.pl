@@ -10,6 +10,8 @@ suite('tests/icl/test_icl.pl').
 suite('tests/agents/test_solvable.pl').
 suite('tests/runtime/test_com.pl').
 suite('tests/runtime/test_event.pl').
+suite('tests/facilitator/test_delegate.pl').
+suite('tests/integration/test_community.pl').
 
 main(_Argv) :-
     forall(suite(F), ensure_loaded(F)),

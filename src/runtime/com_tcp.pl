@@ -122,6 +122,8 @@ com_accept(ListenerId, ConnId) :-
     assertz(conn_address(ConnId, Address)).
 
 peer_address(Host:Port, addr(tcp(Host, Port))) :- !.
+peer_address(ip(A,B,C,D), addr(tcp(Host, 0))) :- !,
+    atomic_list_concat([A,B,C,D], '.', Host).
 peer_address(_, addr(tcp(unknown, 0))).
 
 next_conn_id(ConnId) :-

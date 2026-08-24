@@ -182,6 +182,32 @@ oaa-next does not need OAA 1.0 compatibility, but it should keep a comparable
 seam, because the historical lesson is that the Facilitator, not the client,
 absorbed protocol drift.
 
+## 8a. A consequence of typed solvables worth knowing
+
+Discovered while building the reconstruction, and recorded because it will
+surprise anyone using `can_solve` as a readiness probe.
+
+Matchmaking checks argument conformance against `argspecs`, and `in(Type,
+true)` means the argument *must* be instantiated in the goal. So a lookup with
+a wholly unbound goal:
+
+```
+can_solve(square(_, _), Address)
+```
+
+correctly matches **nothing** when the only provider declares
+`argspecs(in(number, true), out(number, true))` — the unbound first argument
+violates the required-input spec. Asking `can_solve(square(1, _), Address)`
+asks the real question and matches.
+
+This follows directly from Developer's Guide §5.2, so it is almost certainly
+historical behaviour rather than an artefact of this implementation. It has a
+practical consequence: `can_solve` is a query about *a goal*, not about a
+predicate signature, and callers probing for a capability must supply a
+representative goal. There is no recovered evidence of how the historical
+tools (Debug, Monitor) handled this, which is worth checking against the
+Reference Manual.
+
 ## 9. Explicitly open questions
 
 - The precise ordering rule when `utility` ties **and** several agents connected
