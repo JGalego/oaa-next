@@ -7,6 +7,7 @@
 :- initialization(main, main).
 
 suite('tests/icl/test_icl.pl').
+suite('tests/agents/test_solvable.pl').
 
 main(_Argv) :-
     forall(suite(F), ensure_loaded(F)),
