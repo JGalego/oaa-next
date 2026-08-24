@@ -1,0 +1,24 @@
+# Recovered historical artifacts are NEVER committed to this repository.
+# See research/recovered-artifacts.md for provenance, hashes and retrieval
+# instructions. Keep local copies outside the working tree, or here:
+/archive/
+/vendor-historical/
+*.zip
+*.tar.gz
+
+# Build and tool output
+/build/
+/dist/
+*.o
+*.so
+*.dll
+*.class
+*.qof
+*.po
+*.sav
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
