@@ -33,6 +33,7 @@ never names an agent, host or port.
 | `sensor_agent.pl` | A blackboard writer — `address(parent)` turns an ordinary data solvable into shared state |
 | `timed_client.pl` | A time trigger plus a delayed solution together, via the Alarm agent |
 | `alarm_agent.pl` | The Alarm agent itself — time triggers exist only while it's connected |
+| `office_mail_agent.pl` / `office_telephone_agent.pl` / `office_client.pl` | The Office Assistant demo — see below |
 
 `data_client.pl` is also where `ev_data_updated`'s wire shape is pinned:
 `check_reply_arity/0` installs a `comm` trigger on itself before calling
@@ -47,10 +48,41 @@ ever see it — see [`triggers.md`](triggers.md#comm-triggers-see-traffic-not-ju
 - `llm_client.pl` — asks for `interpret/2` with no idea an LLM is involved:
   the Facilitator finds an agent that provides it, and an answer comes back
   through the ordinary delegation path, exactly like any other capability.
+- `office_assistant.pl` — the natural-language front end for the Office
+  Assistant demo, below.
 
 These exist to demonstrate the isolation claim concretely: nothing about
 being a requester in this community changes when the capability behind a
 goal happens to be LLM-backed. See [`llm-agents.md`](llm-agents.md).
+
+## The Office Assistant demo
+
+`office_mail_agent.pl`, `office_telephone_agent.pl` (both
+`examples/multi-agent/`), `office_assistant.pl` (`examples/llm/`) and
+`office_client.pl` (`examples/multi-agent/`) together reconstruct the
+pattern behind what Adam Cheyer's own site calls "the 'original' OAA
+demonstration" — full citation and what is and isn't attested in
+[`../../research/office-demo.md`](../../research/office-demo.md). The
+client sends the demo's own documented command, verbatim —
+
+> When mail arrives for me about "security" get it to me by telephone.
+
+— to the LLM agent's `propose_goal/2`, gets back an ICL
+`oaa_AddTrigger(...)` term, and installs it: a data trigger on the mail
+solvable that delegates delivery to the Telephone agent when a matching
+message arrives. Two messages then "arrive" (an ordinary `oaa_AddData`, run
+by whichever agent has something to deliver — here, the client itself);
+only the one about security is delivered.
+
+This is provenance NEW / ILLUSTRATIVE, not RECONSTRUCTED: the trigger
+pattern and the exact command are attested by a primary-source screenshot
+and a corroborating 1997 paper, but the historical Notify agent's fuller
+delegation logic (location-aware, password-confirmed) is only described in
+prose about a different example and isn't rebuilt here. Speech recognition,
+handwriting recognition, real telephony and the graphical office UI are out
+of scope for the reason they always are for oaa-next: they were I/O
+components wrapped as agents, not part of the architecture itself.
+`tests/llm/test_office_demo.pl` keeps this example working.
 
 ## Running the whole set
 

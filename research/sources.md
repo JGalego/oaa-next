@@ -145,6 +145,12 @@ repeatedly for exhaustive parameter lists.
 - SRI, *e-service modeling* technical paper.
   `https://www.csl.sri.com/papers/eservice-modeling/eservice-modeling.pdf` —
   SHA-256 `5658fd25879c0b7798bac3d610f0925d861d9a67386e94ceea0955c4763774db`
+- **Cheyer**, *Office Demos* page and its two screenshots — the "original"
+  OAA demonstration, with a verbatim example command and an architecture
+  diagram. `http://www.adam.cheyer.com/demo-office.html`. Full citation,
+  hashes and what it establishes are in
+  [`office-demo.md`](office-demo.md), kept separate because it grounds one
+  specific reconstructed example rather than the architecture generally.
 
 ## Tier 4 — Patents and disclosures
 
