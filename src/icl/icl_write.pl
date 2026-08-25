@@ -13,6 +13,8 @@
             icl_atom_quoted/3           % +Atom, -String, +Mode
           ]).
 
+:- use_module(icl_ops).
+
 /** <module> ICL writer
 
 Renders ICL terms in a form the ICL parser reads back.
@@ -72,38 +74,69 @@ option_quoted(Options, Mode) :-
     ).
 
 % ---------------------------------------------------------------- emit terms
+%
+%   emit(+Term, +MaxPriority, +Mode, +State) renders Term, wrapping it in
+%   parentheses when its own priority exceeds what the context allows.  The
+%   top level allows 1200, so a conjunction -- comma, at 1300 -- always comes
+%   out parenthesised, which is right: a bare `a, b` is not a readable ICL
+%   term.
 
-emit(T, _Mode, State) :-
+emit(T, Mode, State) :-
+    emit(T, 1200, Mode, State).
+
+emit(T, _MaxP, _Mode, State) :-
     var(T), !,
     var_name(T, State, Name),
     write(Name).
-emit(T, _Mode, _State) :-
+emit(T, _MaxP, _Mode, _State) :-
     integer(T), !,
     write(T).
-emit(T, _Mode, _State) :-
+emit(T, _MaxP, _Mode, _State) :-
     float(T), !,
     write(T).
-emit(T, _Mode, _State) :-
+emit(T, _MaxP, _Mode, _State) :-
     string(T), !,
     emit_quoted(T, 0'").
-emit(T, Mode, _State) :-
-    atom(T), !,
+emit(T, _MaxP, Mode, _State) :-
+    atom(T), T \== [], !,
     icl_atom_quoted(T, S, Mode),
     write(S).
-emit([], _Mode, _State) :- !,
-    %  In SWI-Prolog the empty list is neither an atom nor a compound, so it
-    %  needs its own clause ahead of both.
+emit([], _MaxP, _Mode, _State) :- !,
     write('[]').
-emit([H|T], Mode, State) :- !,
+emit([H|T], _MaxP, Mode, State) :- !,
     write('['),
-    emit(H, Mode, State),
+    emit(H, 1200, Mode, State),
     emit_tail(T, Mode, State),
     write(']').
-emit({X}, Mode, State) :- !,
+emit({X}, _MaxP, Mode, State) :- !,
     write('{'),
-    emit(X, Mode, State),
+    icl_comma_priority(CommaP),
+    emit(X, CommaP, Mode, State),
     write('}').
-emit(T, Mode, State) :-
+
+%   Infix operators.
+emit(T, MaxP, Mode, State) :-
+    compound(T), functor(T, Op, 2),
+    icl_op(Op, P, Type), !,
+    operand_limits(Type, P, LeftMax, RightMax),
+    arg(1, T, Left), arg(2, T, Right),
+    ( P > MaxP -> write('(') ; true ),
+    emit(Left, LeftMax, Mode, State),
+    emit_operator(Op, Mode),
+    emit(Right, RightMax, Mode, State),
+    ( P > MaxP -> write(')') ; true ).
+
+%   Prefix operators.
+emit(T, MaxP, Mode, State) :-
+    compound(T), functor(T, Op, 1),
+    icl_prefix_op(Op, P, fy), !,
+    arg(1, T, Arg),
+    ( P > MaxP -> write('(') ; true ),
+    icl_atom_quoted(Op, S, Mode), write(S), write(' '),
+    emit(Arg, P, Mode, State),
+    ( P > MaxP -> write(')') ; true ).
+
+emit(T, _MaxP, Mode, State) :-
     compound(T), !,
     T =.. [F|Args],
     icl_atom_quoted(F, S, Mode),
@@ -111,27 +144,39 @@ emit(T, Mode, State) :-
     emit_args(Args, Mode, State),
     write(')').
 
+%   The comma separator is written tight; every other operator is spaced, so
+%   that a symbolic atom beside an operator cannot run into it and re-lex as
+%   one longer symbol.
+
+emit_operator(',', _Mode) :- !,
+    write(',').
+emit_operator(Op, Mode) :-
+    icl_atom_quoted(Op, S, Mode),
+    write(' '), write(S), write(' ').
+
+operand_limits(yfx, P, P, R) :- R is P - 1.
+operand_limits(xfy, P, L, P) :- L is P - 1.
+operand_limits(xfx, P, L, R) :- L is P - 1, R is P - 1.
+
 emit_args([A], Mode, State) :- !,
-    emit(A, Mode, State).
+    emit(A, 1200, Mode, State).
 emit_args([A|As], Mode, State) :-
-    emit(A, Mode, State),
+    emit(A, 1200, Mode, State),
     write(','),
     emit_args(As, Mode, State).
 
 emit_tail(T, Mode, State) :-
-    %  A variable tail must be recognised before the list clauses, which would
-    %  otherwise bind it and silently turn a partial list into a proper one.
     var(T), !,
     write('|'),
-    emit(T, Mode, State).
+    emit(T, 1200, Mode, State).
 emit_tail([], _Mode, _State) :- !.
 emit_tail([H|T], Mode, State) :- !,
     write(','),
-    emit(H, Mode, State),
+    emit(H, 1200, Mode, State),
     emit_tail(T, Mode, State).
 emit_tail(T, Mode, State) :-
     write('|'),
-    emit(T, Mode, State).
+    emit(T, 1200, Mode, State).
 
 % ------------------------------------------------------------ variable names
 %

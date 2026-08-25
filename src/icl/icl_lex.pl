@@ -5,10 +5,9 @@
  *  observation of the OAA 2.3.2 ICL grammars (ANTLR OaaPrologNetParse.g,
  *  PCCTS parser.g).  Written independently; see research/licensing.md.
  *
- *  ICL is a restricted term language.  It has no operator table, no
- *  arithmetic and no clause syntax.  This module and icl_parse.pl enforce
- *  that: a full Prolog reader would accept a strictly larger language than
- *  the historical system did.
+ *  ICL has its own operator set, smaller than Prolog's and with its own
+ *  precedence order; see icl_ops.pl.  Symbol runs that do not spell an
+ *  operator are ordinary symbolic atoms.
  */
 
 :- module(icl_lex,
@@ -16,13 +15,16 @@
             icl_tokens/3                % +Codes, -Tokens, -Rest
           ]).
 
+:- use_module(icl_ops).
+
 /** <module> ICL tokenizer
 
 Token forms produced:
 
-    punct(Char)     one of ( ) [ ] { } , | ! ;
+    punct(Char)     one of ( ) [ ] { } |
     open_ct         an opening parenthesis with no preceding layout, i.e.
                     one that introduces an argument list
+    op(Atom)        an operator, including the comma separator
     atom(Atom)      unquoted or single-quoted atom
     var(Name)       variable name, as an atom; '_' is anonymous
     int(Integer)
@@ -83,13 +85,25 @@ block_rest --> [_], !, block_rest.
 
 token(_,  end)       --> ".", end_follows, !.
 token(false, open_ct) --> "(", !.
+token(_,  op(','))   --> ",", !.
+token(_,  op(;))     --> ";", !.
+token(_,  atom(!))   --> "!", !.
 token(_,  punct(C))  --> [C], { punct_code(C) }, !.
 token(_,  str(S))    --> "\"", !, quoted_codes(0'", Cs), { string_codes(S, Cs) }.
 token(_,  atom(A))   --> "'", !, quoted_codes(0'', Cs), { atom_codes(A, Cs) }.
 token(_,  T)         --> number_token(T), !.
 token(_,  var(V))    --> var_start(C), ident_rest(Cs), { atom_codes(V, [C|Cs]) }, !.
 token(_,  atom(A))   --> lower(C), ident_rest(Cs), { atom_codes(A, [C|Cs]) }, !.
-token(_,  atom(A))   --> symbol_chars(Cs), { Cs \== [], atom_codes(A, Cs) }.
+token(_,  T)         --> symbol_chars(Cs), { Cs \== [], atom_codes(A, Cs), symbol_token(A, T) }.
+
+%   A maximal run of symbol characters is an operator when it spells one
+%   exactly, and a symbolic atom otherwise.  The historical lexers do the same
+%   thing in one rule: SPECIAL_CHAR_LITERAL starts on an operator character
+%   and downgrades to a plain atom as soon as further symbol characters
+%   follow, so `=` is an operator while `==>` is an atom.
+
+symbol_token(A, op(A)) :- icl_operator_atom(A), !.
+symbol_token(A, atom(A)).
 
 %   A period terminates a term only when followed by whitespace, a comment or
 %   end of input.  Otherwise it is part of a float or a symbolic atom.
@@ -105,10 +119,7 @@ punct_code(0'[).
 punct_code(0']).
 punct_code(0'{).
 punct_code(0'}).
-punct_code(0',).
 punct_code(0'|).
-punct_code(0'!).
-punct_code(0';).
 
 lower(C)     --> [C], { code_type(C, lower) }.
 var_start(C) --> [C], { code_type(C, upper) ; C =:= 0'_ }.

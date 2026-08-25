@@ -39,15 +39,24 @@ test(bindings) :-
     icl_parse_term("p(X,Y)", _, Bs),
     msort(Bs, Sorted), Sorted = ['X'=_, 'Y'=_].
 
-%  ICL is a restricted term language.  These are valid Prolog and must NOT
-%  parse -- the historical grammars have the operator tokens commented out.
-%  research/implementation-notes/icl.md section 1.
-test(reject_arith,   [fail]) :- icl_parse_term("X is 1+2", _).
-test(reject_clause,  [fail]) :- icl_parse_term("a :- b", _).
-test(reject_operator,[fail]) :- icl_parse_term("1 + 2", _).
-test(reject_equals,  [fail]) :- icl_parse_term("a = b", _).
+%  ICL's operator set is smaller than Prolog's.  Operators it does have parse;
+%  Prolog constructs it lacks do not.  research/implementation-notes/icl.md.
+test(accepts_turnstile) :- icl_parse_term("a :- b", T), T == (a :- b).
+test(accepts_plus)      :- icl_parse_term("1 + 2", T), T == 1 + 2.
+test(accepts_equals)    :- icl_parse_term("a = b", T), T == (a = b).
+test(accepts_semicolon) :- icl_parse_term("a ; b", T), T == (a ; b).
+
+%  `is` and `-->` are Prolog operators that ICL does not define, so a term
+%  using them has two primaries side by side and fails to parse.
+test(reject_is,      [fail]) :- icl_parse_term("X is 1+2", _).
+test(reject_dcg,     [fail]) :- icl_parse_term("a --> b", _).
 test(reject_junk,    [fail]) :- icl_parse_term("foo(a) bar", _).
 test(reject_unclosed,[fail]) :- icl_parse_term("foo(a", _).
+
+%  A symbol run that does not spell an operator stays a plain symbolic atom,
+%  so it cannot act as one.
+test(unknown_symbol_is_atom) :- icl_parse_term("'==>'", T), T == '==>'.
+test(unknown_symbol_not_infix, [fail]) :- icl_parse_term("f(x) ==> y", _).
 
 %  A stream of period-terminated terms is the wire form.
 test(term_sequence) :-
@@ -56,6 +65,35 @@ test(term_sequence) :-
 test(sequence_scopes_vars) :-
     icl_parse_terms("p(X). q(X).", [p(A), q(B)]),
     A \== B.
+
+
+%  Operators, groups and compound goals.
+
+test(group_is_conjunction) :-
+    icl_parse_term("(a, b)", T), T == (a, b).
+test(group_of_three) :-
+    icl_parse_term("(a, b, c)", T), T == (a, (b, c)).
+test(bare_comma_rejected, [fail]) :-
+    icl_parse_term("a, b", _).
+test(comma_looser_than_semicolon) :-
+    icl_parse_term("(a ; b, c)", T), T == ((a ; b), c).
+test(left_associative) :-
+    icl_parse_term("a - b - c", T), T == ((a - b) - c).
+test(multiplication_binds_tighter) :-
+    icl_parse_term("1 + 2 * 3", T), T == 1 + (2 * 3).
+test(parens_override_precedence) :-
+    icl_parse_term("(1 + 2) * 3", T), T == (1 + 2) * 3.
+test(colon_chain) :-
+    icl_parse_term("addr:goal::params", T), T == ::(addr:goal, params).
+test(curly_group) :-
+    icl_parse_term("{a, b}", T), T == {(a, b)}.
+test(compound_goal_as_argument) :-
+    icl_parse_term("oaa_Solve((p(X), q(X)), [])", T),
+    T = oaa_Solve((p(A), q(B)), Params),
+    A == B,
+    Params == [].
+test(nested_group_in_list) :-
+    icl_parse_term("[(a,b), c]", T), T == [(a, b), c].
 
 :- end_tests(icl_parse).
 
@@ -70,6 +108,20 @@ test(round_trip_empty)   :- rt([]).
 test(round_trip_nums)    :- rt(f(-2, 3.5, -1.5)).
 test(round_trip_string)  :- rt(icldataq("body text")).
 test(round_trip_curly)   :- rt({a}).
+test(round_trip_conjunction) :- rt((a, b)).
+test(round_trip_disjunction) :- rt((a ; b)).
+test(round_trip_mixed_ops)   :- rt(((a ; b), c)).
+test(round_trip_arithmetic)  :- rt(1 + 2 * 3).
+test(round_trip_precedence)  :- rt((1 + 2) * 3).
+test(round_trip_address)     :- rt(::(addr:goal, params)).
+test(round_trip_nested_goal) :- rt(oaa_Solve((p(_X), q(_Y)), [])).
+
+%  A conjunction is always parenthesised on output, because a bare `a, b` is
+%  not a readable ICL term.
+test(conjunction_is_parenthesised) :-
+    icl_term_string((a, b), S), S == "(a,b)".
+test(no_redundant_parens) :-
+    icl_term_string(1 + 2 * 3, S), S == "1 + 2 * 3".
 
 test(round_trip_var) :-
     rt(solve(a, _X)).

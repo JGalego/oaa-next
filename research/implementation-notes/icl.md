@@ -10,37 +10,50 @@ A behavioural specification, written from observation.
 
 ---
 
-## 1. What ICL is, and what it is not
+## 1. What ICL is
 
 ICL is described in the Developer's Guide as an extension of the Prolog
-programming language, chosen so that unification and backtracking are available
-and so that agent messages can be translated to and from natural language.
+programming language, chosen so that unification and backtracking are
+available and so that agent messages can be translated to and from natural
+language.
 
-That description is easy to over-read. ICL is a term language. The recovered
-grammars accept a restricted subset:
+It has its own operator set, smaller than Prolog's, with its own precedence
+order. Both shipped grammars — `OaaPrologNetParse.g` for Java and `parser.g`
+for C — define the same chain, each level iterating `(OP arg)*` over the level
+below, so every infix operator is left-associative:
 
-- Structures — a functor applied to one or more arguments
-- Lists, including the `[Head|Tail]` form
-- Variables
-- Strings and atoms
-- Integers and floats
-- `icldataq/1` and `icldataq/3` — the double-quoted data forms
-- Grouped terms
+| Loosest first | Operators |
+|---|---|
+| `structure` | `:-` |
+| `semiExpression` | `;` |
+| `backslashExpression` | `\` |
+| `equalsExpression` | `=` |
+| `colonExpression` | `:` `::` |
+| `plusMinusExpression` | `+` `-` |
+| `multiplicative` | `*` `/` |
+| `unaryExpression` | prefix `+` `-`, then primaries |
 
-And that is essentially all. In the Java grammar the tokens for arithmetic
-operators (`*`, `/`, `+`, `-`), for `=`, for `:` and for the turnstile `:-` are
-all present but **commented out**. There is no operator precedence table, no
-clause syntax, no arithmetic evaluation, and no cut as a control construct
-(`!` is lexed, but only as a plain token).
+Comma sits outside that chain. It appears only in `commaSeparatedStructs`,
+which the group, list and argument-list rules use and whose members are whole
+`structure`s, so comma binds more loosely than every operator above it. A
+conjunction is therefore written inside a group — `(a, b)` — and a bare
+`a, b` at top level is a syntax error.
 
-The practical consequence for a reimplementation is sharp: **do not implement
-ICL by calling a full Prolog reader.** A Prolog reader accepts a strictly
-larger language than ICL does, so an implementation built that way will
-silently accept messages the historical system would have rejected, and will
-diverge in the places compatibility tests should catch. oaa-next should
-implement the restricted grammar directly and treat the Prolog resemblance as
-being about *semantics* — unification, variables, backtracking over solutions —
-rather than about surface syntax.
+What ICL lacks is as informative as what it has. There is no `is`, no
+comparison chain, no `-->`, no operator-definition directive. A symbol run
+that does not spell one of the operators above stays an ordinary symbolic
+atom, so `f(x) ==> y` does not parse. Deferring to a full Prolog reader would
+accept a strictly larger language than the historical system did.
+
+> **Correction.** An earlier revision of this note claimed ICL had no operator
+> table at all, on the strength of the commented-out `//STAR`, `//PLUS`,
+> `//COLON` token definitions near the top of the Java lexer. That reading was
+> wrong. Those single-character rules were superseded, not disabled: the Java
+> lexer folds them into one `SPECIAL_CHAR_LITERAL` rule that assigns the token
+> type dynamically and downgrades to a plain atom when further symbol
+> characters follow. The C grammar declares each of them as an ordinary
+> `#token`. The parser rules referencing them are live in both. oaa-next's
+> parser was rewritten to match.
 
 ## 2. Two layers
 
@@ -216,14 +229,22 @@ reconstruction by making them opaque.
 
 - The complete set of escape sequences inside quoted atoms and `icldataq`
   bodies. The grammar handles this in lexer rules not yet fully read.
-- Whether the C (PCCTS) and Java (ANTLR) grammars accept the same language,
-  or diverge at the edges. Worth a direct comparison: a divergence between two
-  libraries shipped in the same release would say a good deal about which
-  behaviours agents actually relied on.
 - The exact form and semantics of `icldataq/3`'s three arguments; the
   Developer's Guide defers to documentation "elsewhere" that has not been
   recovered.
-- Whether `GROUP` in the grammar is parenthesised grouping only, or carries
-  meaning in matching.
-- The ICL Reference Manual (`doc/iclrefmanual.html`, not yet retrieved) is the
-  natural source for most of the above.
+- Whether `GROUP` in the grammar carries any meaning in matching beyond
+  denoting a conjunction.
+
+### Closed since the first draft
+
+- **Do the C and Java grammars accept the same language?** In the operator
+  chain, yes: identical operators in identical order, both left-associative.
+  The one divergence found is in number lexing. The C grammar folds an
+  optional sign into its `NUM_INT` and `NUM_FLOAT` tokens, which makes `1-2`
+  lex as two integers and fail to parse; the Java grammar lexes the sign as an
+  operator and combines it with a following literal in `unaryExpression`.
+  oaa-next follows the Java reading.
+- **What is the top-level shape of a goal?** `Address:Goal::Params`, with
+  address and parameters both optional and every goal implicitly carrying all
+  three parts. The OAA Agent Library Reference Manual states this under
+  `oaa_DisassembleGoal`, and it is why `:` and `::` are in the operator table.

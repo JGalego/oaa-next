@@ -35,8 +35,8 @@ dropped:
 
 Findings from the implementation itself live in the notes rather than here:
 `can_solve` with a wholly unbound goal cannot match a solvable declaring
-required inputs (facilitator.md §8a), and ICL's grammar is a restricted term
-language rather than Prolog syntax (icl.md §1).
+required inputs (facilitator.md §8a), and ICL's operator set is its own,
+smaller than Prolog's and with its own precedence order (icl.md §1).
 
 **Provenance** values, per the project's ORIGINAL / RECONSTRUCTED / MODERNIZED
 / NEW distinction, are recorded per subsystem once implementation begins.
