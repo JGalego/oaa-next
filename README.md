@@ -85,6 +85,10 @@ natural-language agent, and the browser UI. It prints a local URL; open it in
 your browser, click **Do It**, then simulate mail about **security**. The
 installed trigger routes the matching message to the telephone agent.
 
+<p align="center">
+  <img src="docs/assets/office-assistant-demo.gif" width="640" alt="Office Assistant demo installing a mail trigger and delivering matching mail by telephone">
+</p>
+
 The demo is self-contained: it makes no external LLM request and requires no
 API key. Press `Ctrl-C` in the terminal to stop the community.
 
