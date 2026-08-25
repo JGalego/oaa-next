@@ -8,11 +8,14 @@
 
 :- module(community,
           [ start_community/2,          % +AgentScripts, -Handle
+            start_hierarchy/3,          % +RootAgents, +NodeAgents, -Handle
             stop_community/1,           % +Handle
-            run_program/3               % +Handle, +Relative, -Lines
+            run_program/3,              % +Handle, +Relative, -Lines
+            run_program_at/4            % +Handle, +Which, +Relative, -Lines
           ]).
 
 :- use_module(library(process)).
+:- discontiguous stop_community/1.
 :- use_module(library(filesex)).
 
 repo_root(Root) :-
@@ -79,6 +82,75 @@ run_program(community(Dir, _), Relative, Lines) :-
     atomic_list_concat([Root, Relative], Script),
     swipl_path(Swipl),
     process_create(Swipl, [Script, '--'],
+                   [ cwd(Dir), stdout(pipe(Out)), stderr(null), process(PID) ]),
+    read_string(Out, _, S),
+    close(Out),
+    process_wait(PID, _Status),
+    split_string(S, "\n", " \t", Lines0),
+    exclude(==(""), Lines0, Lines).
+
+%!  start_hierarchy(+RootAgents, +NodeAgents, -Handle) is det.
+%
+%   A root facilitator with a node facilitator beneath it, each with its own
+%   agents.  A node facilitator is started by pointing it at a parent with
+%   -oaa_connect; nothing else distinguishes it.
+
+start_hierarchy(RootAgents, NodeAgents, hierarchy(Dir, PIDs, RootPort, NodePort)) :-
+    repo_root(Root),
+    tmp_file_stream(text, TmpFile, S), close(S), delete_file(TmpFile),
+    make_directory(TmpFile),
+    Dir = TmpFile,
+    directory_file_path(Dir, 'root.pl', RootSetup),
+    directory_file_path(Dir, 'node.pl', NodeSetup),
+
+    spawn(Root, '/bin/facilitator.pl',
+          ['-oaa_name', root, '-write_setup_file', RootSetup], Dir, RootPID),
+    wait_for_file(RootSetup, 100),
+    setup_port(RootSetup, RootPort),
+    format(atom(RootAddr), "tcp(localhost,~w)", [RootPort]),
+
+    spawn(Root, '/bin/facilitator.pl',
+          ['-oaa_name', node, '-oaa_connect', RootAddr,
+           '-write_setup_file', NodeSetup], Dir, NodePID),
+    wait_for_file(NodeSetup, 100),
+    setup_port(NodeSetup, NodePort),
+    format(atom(NodeAddr), "tcp(localhost,~w)", [NodePort]),
+
+    findall(P,
+            ( member(Script, RootAgents),
+              spawn(Root, Script, ['-oaa_connect', RootAddr], Dir, P) ),
+            RootPIDs),
+    findall(P,
+            ( member(Script, NodeAgents),
+              spawn(Root, Script, ['-oaa_connect', NodeAddr], Dir, P) ),
+            NodePIDs),
+    append([[RootPID, NodePID], RootPIDs, NodePIDs], PIDs),
+    sleep(1.2).
+
+setup_port(File, Port) :-
+    read_file_to_string(File, S, []),
+    split_string(S, ",", " ", Parts),
+    last(Parts, PortPart),
+    split_string(PortPart, ")", " ", [PortStr|_]),
+    number_string(Port, PortStr).
+
+stop_community(hierarchy(Dir, PIDs, _, _)) :- !,
+    forall(member(PID, PIDs),
+           ( catch(process_kill(PID, term), _, true),
+             catch(process_wait(PID, _, [timeout(2)]), _, true) )),
+    catch(delete_directory_and_contents(Dir), _, true).
+
+%!  run_program_at(+Handle, +Which, +Relative, -Lines) is det.
+%
+%   Run a program attached to a named facilitator in a hierarchy.
+
+run_program_at(hierarchy(Dir, _, RootPort, NodePort), Which, Relative, Lines) :-
+    ( Which == root -> Port = RootPort ; Port = NodePort ),
+    format(atom(Addr), "tcp(localhost,~w)", [Port]),
+    repo_root(Root),
+    atomic_list_concat([Root, Relative], Script),
+    swipl_path(Swipl),
+    process_create(Swipl, [Script, '--', '-oaa_connect', Addr],
                    [ cwd(Dir), stdout(pipe(Out)), stderr(null), process(PID) ]),
     read_string(Out, _, S),
     close(Out),

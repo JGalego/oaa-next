@@ -10,7 +10,8 @@
             fac_stop/0,
             fac_main/0,
             fac_registry/1,             % -Registry
-            fac_address/1               % -Address
+            fac_address/1,              % -Address
+            fac_is_node/0
           ]).
 
 :- use_module('../icl/icl_term').
@@ -99,6 +100,10 @@ fac_start(Options) :-
     ->  write_setup_file(File, Address)
     ;   true
     ),
+    (   memberchk(connect(ParentAddr), Options)
+    ->  connect_to_parent(Name, ParentAddr)
+    ;   true
+    ),
     oaa_register_callback(on_connect, fac:on_connect),
     oaa_register_callback(on_disconnect, fac:on_disconnect),
     (   memberchk(once(true), Options)
@@ -149,6 +154,8 @@ fac_stop :-
     retractall(comp_current(_, _)),
     retractall(meta_pending(_, _, _, _, _, _)),
     retractall(meta_pending_sel(_, _)),
+    retractall(referred(_, _, _, _)),
+    retractall(parent_facilitator(_)),
     retractall(fac_option(_)).
 
 %!  fac_main is det.
@@ -162,6 +169,9 @@ fac_main :-
 
 argv_options([], []).
 argv_options(['-oaa_listen', Spec|T], [address(Addr)|R]) :- !,
+    parse_address(Spec, Addr),
+    argv_options(T, R).
+argv_options(['-oaa_connect', Spec|T], [connect(Addr)|R]) :- !,
     parse_address(Spec, Addr),
     argv_options(T, R).
 argv_options(['-oaa_name', Name|T], [name(NameAtom)|R]) :- !,
@@ -181,6 +191,68 @@ parse_address(Spec, Addr) :-
     ->  Addr = tcp(localhost, Port)
     ;   Addr = tcp(localhost, _)
     ).
+
+% ------------------------------------------------------- node facilitators
+%
+%   A facilitator arranged below another is started with oaa_connect pointed
+%   at its parent, which makes it a *node* facilitator.  Nothing else
+%   distinguishes it: the Developer's Guide describes a facilitator as just
+%   another OAA agent using the same library and communication standards, and
+%   a node facilitator as a "super" agent capable of solving every goal its
+%   own clients can solve.
+%
+%   That description is also the implementation.  A node facilitator registers
+%   upward with the union of its clients' solvables, so its parent selects it
+%   by ordinary unification like any other provider, and hands it goals it can
+%   satisfy through its own community.  There is no federation protocol, and
+%   downward propagation needs no code at all -- a child facilitator is
+%   already in its parent's registry.
+
+:- dynamic parent_facilitator/1.        % Address
+
+connect_to_parent(Name, ParentAddr) :-
+    com_connect(parent, [address(ParentAddr)], _),
+    retractall(parent_facilitator(_)),
+    assertz(parent_facilitator(ParentAddr)),
+    refresh_upward_registration(Name).
+
+fac_is_node :-
+    parent_facilitator(_).
+
+%!  refresh_upward_registration(+Name) is det.
+%
+%   Tell the parent what this community can solve.  Re-registering replaces
+%   the previous declaration, so this is also how the parent learns that a
+%   client has arrived or gone.
+
+refresh_upward_registration(Name) :-
+    (   parent_facilitator(_)
+    ->  aggregate_solvables(Aggregate),
+        com_send(parent, ev_register_solvables(Name, Aggregate, []))
+    ;   true
+    ).
+
+refresh_upward_registration :-
+    (   oaa_name(Name) -> true ; Name = node ),
+    refresh_upward_registration(Name).
+
+%   The union of the clients' solvables.  The facilitator's own built-ins stay
+%   out: agent_data and can_solve describe this community, and answering a
+%   parent's question about them would be misleading.
+
+aggregate_solvables(Aggregate) :-
+    findall(S,
+            ( agent_entry(Conn, _, _, ready, Solvables, _),
+              Conn \== parent,
+              member(S, Solvables) ),
+            All),
+    dedupe_solvables(All, Aggregate).
+
+dedupe_solvables([], []).
+dedupe_solvables([S|T], [S|R]) :-
+    S = solvable(G, _, _),
+    exclude([solvable(G2, _, _)]>>(G2 =@= G), T, T1),
+    dedupe_solvables(T1, R).
 
 % -------------------------------------------------------- connection events
 
@@ -205,7 +277,8 @@ on_disconnect(ConnId) :-
         oaa_data_remove(facilitator, agent_data(LocalId,_,_,_,_,_), [do_all(true)], _),
         oaa_data_remove(facilitator, agent_host(LocalId,_,_), [do_all(true)], _),
         oaa_data_remove_owner(LocalId),
-        cancel_outstanding_for(ConnId)
+        cancel_outstanding_for(ConnId),
+        refresh_upward_registration
     ;   true
     ).
 
@@ -225,6 +298,10 @@ handle(ConnId, ev_register_solvables(Name, Solvables, Params)) :- !,
     register_agent(ConnId, Name, Solvables, Params).
 handle(ConnId, ev_solve(GoalId, Goal, Params)) :- !,
     begin_solve(ConnId, GoalId, Goal, Params).
+handle(parent, ev_solved(UpId, Requestees, Solvers, _G, _P, Solutions)) :-
+    referred(UpId, _, _, _), !,
+    referred_answer(UpId, Requestees, Solvers, Solutions).
+handle(_ConnId, ev_registered(_LocalId, _Address)) :- !.
 handle(ConnId, ev_solved(FacGoalId, _Rq, _Sv, _G, _P, Solutions)) :- !,
     provider_replied(ConnId, FacGoalId, Solutions).
 handle(ConnId, ev_post_declare(Mode, Solvables, Params)) :- !,
@@ -252,7 +329,8 @@ register_agent(ConnId, Name, SolvableSpecs, _Params) :-
                  agent_data(LocalId, client, ready, Solvables, Name, Info),
                  [], _),
     com_address(ConnId, Address),
-    com_send(ConnId, ev_registered(LocalId, Address)).
+    com_send(ConnId, ev_registered(LocalId, Address)),
+    refresh_upward_registration.
 
 normalize_incoming(Specs, Solvables) :-
     (   catch(solvable_list(Specs, Solvables), _, fail)
@@ -279,7 +357,8 @@ post_declare(ConnId, Mode, Specs, _Params) :-
         oaa_data_remove(facilitator, agent_data(LocalId,_,_,_,_,_), [do_all(true)], _),
         oaa_data_add(facilitator,
                      agent_data(LocalId, client, Status, Updated, Name, Info),
-                     [], _)
+                     [], _),
+        refresh_upward_registration
     ;   true
     ).
 
@@ -365,9 +444,68 @@ dispatch_goal(ReplyTo, RequesterId, Goal, Params) :-
 
 continue_dispatch(ReplyTo, RequesterId, Goal, Params, Selected) :-
     (   Selected == []
-    ->  finish_request(ReplyTo, Goal, Params, [], [], [])
+    ->  (   propagate_up(ReplyTo, Params)
+        ->  propagate_upward(ReplyTo, Goal, Params)
+        ;   finish_request(ReplyTo, Goal, Params, [], [], [])
+        )
     ;   fac_dispatch_plan(Selected, Params, Mode, Batch),
         start_request(ReplyTo, RequesterId, Goal, Params, Mode, Selected, Batch)
+    ).
+
+%   Whether a goal this community cannot satisfy should be referred to the
+%   parent facilitator.  Developer's Guide 6.10: propagate carries up/1 and
+%   down/1, each true, false or if_no_solvers, defaulting to false -- so
+%   nothing propagates unless a requester asks for it.
+%
+%   A goal that arrived *from* the parent is never sent back up, or a
+%   community that cannot solve it would bounce it between levels forever.
+
+propagate_up(ReplyTo, Params) :-
+    parent_facilitator(_),
+    \+ came_from_parent(ReplyTo),
+    icl_get_param_value(propagate(PropParams), Params),
+    icl_get_param_value(up(Up), PropParams, false),
+    memberchk(Up, [true, if_no_solvers]),
+    up_limit_allows(PropParams).
+
+came_from_parent(client(parent, _)).
+
+up_limit_allows(PropParams) :-
+    (   icl_get_param_value(up_limit(Limit), PropParams),
+        integer(Limit)
+    ->  Limit > 0
+    ;   true
+    ).
+
+%   Referring a goal upward is an ordinary request to the parent, made with
+%   this facilitator's own agent library.  The continuation -- where the
+%   answer has to come back to -- is the reply tag already in hand.
+
+propagate_upward(ReplyTo, Goal, Params) :-
+    oaa_next_goal_id(UpId),
+    decrement_up_limit(Params, UpParams),
+    assertz(referred(UpId, ReplyTo, Goal, UpParams)),
+    com_send(parent, ev_solve(UpId, Goal, UpParams)).
+
+decrement_up_limit(Params, UpParams) :-
+    (   icl_get_param_value(propagate(PropParams), Params),
+        icl_get_param_value(up_limit(Limit), PropParams),
+        integer(Limit)
+    ->  Limit1 is Limit - 1,
+        icl_param_set(up_limit(Limit1), PropParams, PropParams1),
+        icl_param_set(propagate(PropParams1), Params, UpParams)
+    ;   UpParams = Params
+    ).
+
+:- dynamic referred/4.          % UpId, ReplyTo, Goal, Params
+
+%   The parent has answered a referred goal.  The solution set, and the
+%   identity of whoever solved it, go back to the original requester.
+
+referred_answer(UpId, Requestees, Solvers, Solutions) :-
+    (   retract(referred(UpId, ReplyTo, Goal, Params))
+    ->  finish_request(ReplyTo, Goal, Params, Requestees, Solvers, Solutions)
+    ;   true
     ).
 
 meta_goal(Goal) :-
