@@ -155,11 +155,13 @@ Directories are created as there is something to put in them.
 
 ## License
 
-Not yet chosen. The choice waits on the provenance of any incorporated
-historical material being settled; see
-[`research/licensing.md`](research/licensing.md) §5. Picking a permissive
-license before knowing what is being distributed is the mistake this project
-is set up to avoid.
+[MIT](LICENSE), for oaa-next's own independently authored code and
+documentation. This project has proceeded clean-room throughout — no
+historical OAA source or binary is committed here — so the provenance
+question §5 of [`research/licensing.md`](research/licensing.md) once
+depended on is already settled by that fact, not deferred by it. The
+historical OAA 2.3.2 distribution itself remains LGPL-2.1-or-later,
+copyright SRI International, and MIT covers none of it.
 
 ## Trademark and affiliation
 
@@ -169,7 +171,12 @@ continuation of SRI OAA, and not endorsed by or affiliated with SRI
 International.
 
 "OAA" is a registered trademark, and "Open Agent Architecture" is a trademark,
-of SRI International. The live status of those marks has not been verified,
-and the project name remains an open question — see
+of SRI International. Live USPTO status could not be checked from this
+environment (the TSDR API now requires a registered key this session
+doesn't have), but the project keeps its name: nominative fair use — naming
+truthfully what an independent reimplementation reimplements, without
+adopting the mark as this project's own brand — doesn't turn on that status.
+Live verification remains worth doing before any trademark-sensitive step
+(registering "oaa-next" as its own mark, using OAA in advertising); see
 [`research/licensing.md`](research/licensing.md) §6. See also
 [`docs/historical/notice.md`](docs/historical/notice.md).

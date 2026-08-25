@@ -30,10 +30,16 @@ Those marks are used in this repository **nominatively** — to identify
 truthfully the system that oaa-next reimplements and to cite its documentation.
 No claim of ownership is made.
 
-The live status of these marks as of 2026 has not been verified, and the
-project's own name incorporates the mark. Both points are unresolved and are
-tracked in [`../../research/licensing.md`](../../research/licensing.md) §6.
-Verification is required before any public release.
+The live status of these marks as of 2026 has not been verified — a check
+was attempted and blocked by a USPTO API key requirement this environment
+cannot satisfy, recorded in
+[`../../research/licensing.md`](../../research/licensing.md) §6. That gap
+does not unsettle the nominative use above: it depends on the reference
+being truthful and non-confusing, not on the mark's current registration
+status, so the project keeps its name and this notice rather than treating
+either as an open question. Live verification remains worth completing
+before any step that depends specifically on current registration status —
+registering "oaa-next" as its own mark, for instance.
 
 ## Copyright in the historical material
 

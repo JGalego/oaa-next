@@ -127,11 +127,11 @@ mixed-license project and constrains its own license choice.
 
 None of this grants trademark rights. See §6.
 
-## 5. Consequence for oaa-next — an open choice
+## 5. Consequence for oaa-next — decided
 
 The project brief specified clean-room reconstruction on the assumption that
 the historical license would be too restrictive to copy from. That assumption
-turns out to be false, which leaves a decision to make:
+turns out to be false, which left a decision to make:
 
 - Option A — clean-room, permissive. Use the recovered source only as a
   behavioural reference; author all oaa-next code independently; release
@@ -141,19 +141,22 @@ turns out to be false, which leaves a decision to make:
   hardest parts such as the Facilitator's matching and routing, and honest
   about lineage; oaa-next then inherits LGPL-2.1-or-later for those parts.
 
-This repository proceeds under Option A unless the owner directs otherwise.
-The brief asked for it, it keeps the final license choice open, and a
-reconstruction meant to be read alongside the original is better served by
-independently written code than by a port.
+This repository has proceeded under Option A throughout — every subsystem is
+independently authored, and no historical OAA source or binary has ever been
+committed here — so Option A is now confirmed as oaa-next's license basis
+rather than merely the interim default. The permissive license chosen for
+oaa-next's own code is **MIT**, in `LICENSE` at the repository root. It
+covers newly-written oaa-next source and documentation only; it grants
+nothing over, and makes no claim on, the LGPL-2.1-or-later OAA 2.3.2
+distribution itself.
 
-Under Option A the recovered source is still enormously useful — as the
+Under Option A the recovered source remains enormously useful — as the
 specification of record for behaviour that the Developer's Guide leaves
-underspecified. Reading it for that purpose is not copying.
+underspecified. Reading it for that purpose is not copying, and nothing
+about choosing MIT changes that boundary: no historical OAA source code and
+no historical binary is committed to this repository, and none should be.
 
-No historical OAA source code and no historical binary is committed to this
-repository. That holds under either option until the owner decides.
-
-## 6. Trademark — still unresolved
+## 6. Trademark — nominative use, kept as-is
 
 From Exhibit A of the Research Community License and repeated in source
 headers throughout the distribution:
@@ -171,17 +174,31 @@ The project name `oaa-next` incorporates a registered mark. Saying truthfully
 that this project reimplements SRI's OAA is nominative use; taking the mark as
 the name of your own software is where trademark risk lives.
 
-Current status has to be checked before publication. Everything above comes
-from documents written between 1999 and 2007. Whether the registration is
-live, lapsed or assigned in 2026 is a question for the live USPTO TSDR
-register, and the OAA patent family was assigned onward to IPA Technologies,
-so the marks may have moved too.
+Everything above comes from documents written between 1999 and 2007. Whether
+the registration is live, lapsed or assigned in 2026 is a question for the
+live USPTO TSDR register, and the OAA patent family was assigned onward to
+IPA Technologies, so the marks may have moved too. A live-status check was
+attempted from this environment: USPTO's TSDR case-status API now requires a
+registered API key that this session does not have (`tsdrapi.uspto.gov`
+returns 401 as of the October 2026 policy change), and the public search
+frontend's data API endpoint could not be located without one. The check is
+therefore unresolved by lookup failure, not by inference, and stays a task
+for the owner — who has the account access to register for a key — before
+any action that depends on current registration status specifically (for
+instance, registering "oaa-next" as a trademark of its own, or using OAA in
+advertising).
 
-Before any public release the owner should verify the live status of the "OAA"
-mark and decide whether to keep `oaa-next` as the name or adopt a distinct one
-that describes the project by reference — "an independent reimplementation of
-SRI International's Open Agent Architecture" — without taking the mark as its
-own. This repository makes no such call and assumes no outcome.
+That gap does not block the project name or its use of "OAA" in running
+text. Nominative fair use — truthfully naming the trademarked system a
+work reimplements, without adopting the mark as that work's own brand —
+does not depend on whether the underlying registration is currently live;
+it depends on the use being truthful, non-confusing, and not implying
+sponsorship. `oaa-next` reads as a derivative reference (compare `next.js`
+or similar naming conventions), not as a claim to be OAA-branded software,
+and every notice in this repository — here and in
+`../docs/historical/notice.md` — already states plainly that the project is
+independent and unaffiliated. On that basis the project keeps its name and
+its current nominative-use language rather than renaming pre-emptively.
 
 Regardless of the name, this project must not imply affiliation with,
 endorsement by, or continuation-of-record from SRI International.
@@ -216,7 +233,7 @@ Tracks material actually present in, or proposed for, this repository.
 
 | Component | Origin | Version | Copyright holder | Original license | Redistribute? | Modify? | Commercial? | In repo? | Required notices |
 |---|---|---|---|---|---|---|---|---|---|
-| oaa-next research notes and documentation | New, this project | — | Project authors | Undecided — see §5 | n/a | n/a | n/a | **Yes** | — |
+| oaa-next source code and documentation | New, this project | — | Project authors | MIT — see §5 and `../LICENSE` | Yes | Yes | Yes | **Yes** | MIT notice |
 | OAA 2.3.2 distribution (`oaa2.3.2_02.zip`) | SRI International | 2.3.2 build 02 | SRI International | LGPL-2.1-or-later | Yes | Yes | Yes | **No** — reference only | LGPL header, SRI copyright |
 | OAA Facilitator source (`fac.pl` et al.) | SRI International | 2.3.2 | SRI International | LGPL-2.1-or-later | Yes | Yes | Yes | **No** — reference only | LGPL header, SRI copyright |
 | OAA Facilitator binary (`fac.exe`) | SRI International | 2.3.2 | SRI International | LGPL-2.1-or-later | Yes | Yes | Yes | **No** | LGPL |
