@@ -1,10 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="360" height="60" viewBox="0 8 360 60" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="68" viewBox="0 3 360 68" role="img" aria-labelledby="title desc">
   <title id="title">OAA Next</title>
-  <desc id="desc">OAA Next wordmark with a green O, purple As, and blue Next</desc>
+  <desc id="desc">OAA Next wordmark with an elegant green and purple OAA monogram and a blue Next</desc>
 
-  <g font-family="DejaVu Sans, Arial, sans-serif" font-size="64">
-    <text x="5" y="61" fill="#258126" font-weight="600">O</text>
-    <text x="55" y="61" fill="#9125b4" font-weight="600">AA</text>
-    <text x="174" y="61" fill="#168fbf" font-weight="300">Next</text>
+  <g font-family="Georgia, 'Times New Roman', serif" font-size="62" font-weight="700">
+    <text x="4" y="59" fill="#237a3b">O</text>
+    <text x="53" y="59" fill="#783c96" letter-spacing="-3">AA</text>
   </g>
+  <path d="M8 65 H153" fill="none" stroke="#783c96" stroke-width="1.5" opacity="0.45"/>
+  <text x="170" y="59" fill="#247f9e"
+        font-family="Avenir Next, Segoe UI, DejaVu Sans, sans-serif"
+        font-size="52" font-weight="300" letter-spacing="1">Next</text>
 </svg>

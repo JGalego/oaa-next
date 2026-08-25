@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/oaa-logo-art.png" width="100" alt="Classic OAA artwork"><br><img src="docs/assets/oaa-next-logo.svg" width="360" height="60" alt="OAA Next">
+  <img src="docs/assets/oaa-logo-art.png" width="100" alt="Classic OAA artwork"><br><img src="docs/assets/oaa-next-logo.svg" width="360" height="68" alt="OAA Next">
 </p>
 
 <p align="center"><strong>Classic agent architecture, modern reasoning.</strong></p>
