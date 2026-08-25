@@ -69,7 +69,7 @@ test(multiple_solutions_survive) :-
 test(model_written_compound_goal_is_decomposed) :-
     lines(Lines),
     once(( member(L, Lines),
-            sub_string(L, _, _, _, "square the number 3 and greet the world"),
+            sub_string(L, _, _, _, "do both"),
            sub_string(L, _, _, _, "square(3,9)"),
            sub_string(L, _, _, _, "Hello, world") )).
 

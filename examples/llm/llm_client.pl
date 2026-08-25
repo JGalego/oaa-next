@@ -14,15 +14,17 @@
 
 run :-
     oaa_agent_start(llm_client, [], []),
-    await_capability(interpret("x", _), 60),
-    ask("square the number 7"),
-    ask("greet the world"),
-    ask("square the number 3 and greet the world"),
-    ask("something impossible"),
+    Session = llm_demo,
+    await_capability(interpret(Session, "x", _), 60),
+    oaa_solve(reset_conversation(Session), [time_limit(10)]),
+    ask(Session, "square the number 7"),
+    ask(Session, "greet the world"),
+    ask(Session, "do both"),
+    ask(Session, "something impossible"),
     halt(0).
 
-ask(Request) :-
-    (   oaa_solve(interpret(Request, Result), [time_limit(30)])
+ask(Session, Request) :-
+    (   oaa_solve(interpret(Session, Request, Result), [time_limit(30)])
     ->  format("~w => ~q~n", [Request, Result])
     ;   format("~w => no answer~n", [Request])
     ).

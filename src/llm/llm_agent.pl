@@ -40,16 +40,16 @@ That is the invariant worth protecting: an LLM in this position makes the
 community more capable without becoming a route around it.
 */
 
-llm_agent_solvables([ solvable(interpret(_Session, _Ask, _Result),
+llm_agent_solvables([ solvable(interpret(_, _, _),
                                                              [ callback(llm_agent:interpret_session_request),
                                                                  argspecs(in(_, true), in(string, true),
                                                                                     out(_, true)) ],
                                                              []),
-                                            solvable(reset_conversation(_Session),
+                                            solvable(reset_conversation(_),
                                                              [ callback(llm_agent:reset_conversation_request),
                                                                  argspecs(in(_, true)) ],
                                                              []),
-                                            solvable(interpret(_Ask, _Result),
+                                            solvable(interpret(_, _),
                                [ callback(llm_agent:interpret_request),
                                  argspecs(in(string, true), out(_, true)) ],
                                []),

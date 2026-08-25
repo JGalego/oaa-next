@@ -58,6 +58,48 @@ test(empty_model_uses_provider_default) :-
 :- end_tests(llm_provider).
 
 
+:- begin_tests(llm_conversation).
+
+test(session_solvables_are_advertised) :-
+    llm_agent_solvables(Solvables),
+    memberchk(solvable(interpret(_, _, _), _, _), Solvables),
+    memberchk(solvable(reset_conversation(_), _, _), Solvables),
+    memberchk(solvable(interpret(_, _), _, _), Solvables).
+
+test(histories_are_session_scoped,
+     [ setup((llm_reset_conversation(alpha),
+              llm_reset_conversation(beta))),
+       cleanup((llm_reset_conversation(alpha),
+                llm_reset_conversation(beta))) ]) :-
+    llm_agent:remember_turn(alpha, [], "first request", "first reply"),
+    llm_agent:session_history(alpha, Alpha),
+    llm_agent:session_history(beta, Beta),
+    Alpha == [message(user, "first request"),
+              message(assistant, "first reply")],
+    Beta == [].
+
+test(history_is_bounded_to_six_turns,
+     [ setup(llm_reset_conversation(bounded)),
+       cleanup(llm_reset_conversation(bounded)) ]) :-
+    forall(between(1, 8, N),
+           ( llm_agent:session_history(bounded, Before),
+             format(string(Request), "request ~w", [N]),
+             format(string(Reply), "reply ~w", [N]),
+             llm_agent:remember_turn(bounded, Before, Request, Reply) )),
+    llm_agent:session_history(bounded, History),
+    length(History, 12),
+    History = [message(user, "request 3")|_],
+    last(History, message(assistant, "reply 8")).
+
+test(reset_discards_history) :-
+    llm_agent:remember_turn(resettable, [], "request", "reply"),
+    llm_reset_conversation(resettable),
+    llm_agent:session_history(resettable, History),
+    History == [].
+
+:- end_tests(llm_conversation).
+
+
 :- begin_tests(llm_goal_extraction, [setup(enable), cleanup(disable)]).
 
 %   A model's reply becomes a goal only if it is well-formed ICL.
