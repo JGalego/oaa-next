@@ -5,6 +5,7 @@
 <p align="center"><strong>Classic agent architecture, modern reasoning.</strong></p>
 
 <p align="center">
+  <a href="https://github.com/JGalego/oaa-next/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JGalego/oaa-next/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-171a52.svg"></a>
   <a href="https://www.swi-prolog.org/"><img alt="SWI-Prolog" src="https://img.shields.io/badge/SWI--Prolog-9%2B-19a8b8.svg"></a>
   <a href="docs/guide/README.md"><img alt="Documentation" src="https://img.shields.io/badge/docs-guide-e0b82d.svg"></a>
