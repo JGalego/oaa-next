@@ -12,13 +12,18 @@ for that claim, and what oaa-next intends to do about it.
 - `partial` — begun, not finished
 - `open` — historical behaviour not yet established
 
-## Phase 1 status
+## Status
 
 The historical core is running. A Facilitator and client agents, each its own
 operating-system process, exchange ICL over TCP; capabilities are declared as
 solvables, matched by unification, ordered by utility and delegated; data
-solvables, ownership, blackboards and triggers all work. The test suite
-passes, and no part of it has any LLM dependency.
+solvables, ownership, blackboards, triggers and compound goals all work, in
+single facilitators and in hierarchies. The Agent Development Toolkit
+(generator, shell, debug REPL, Start-It, Monitor) sits on top of it. The
+optional LLM extension and the MCP/A2A interoperability adapters are built
+and kept outside `src/` core, with the isolation claim enforced by
+`tests/llm/test_isolation.pl` rather than asserted. The test suite passes,
+and no part of the core has any LLM dependency.
 
 Left undone on purpose, and recorded as `deferred` below rather than quietly
 dropped:
@@ -26,11 +31,16 @@ dropped:
 | Deferred | Why |
 |---|---|
 | Time triggers | Never in the historical libraries either — they need the separate Alarm agent |
+| `plan_query`/`execute_plan` meta-agents | The `prioritize` and `lookup` hooks are implemented; refining or taking over compound-goal routing is not |
 
 Findings from the implementation itself live in the notes rather than here:
 `can_solve` with a wholly unbound goal cannot match a solvable declaring
-required inputs (facilitator.md §8a), and ICL's operator set is its own,
-smaller than Prolog's and with its own precedence order (icl.md §1).
+required inputs (facilitator.md §8a), ICL's operator set is its own, smaller
+than Prolog's and with its own precedence order (icl.md §1), and the wire
+reply to a data update carries six arguments —
+`ev_data_updated(GoalId, Mode, Clause, Requestees, Solvers, Params)` — as
+settled from SRI's own OTML conformance corpus
+(`tests/compatibility/test_conformance.pl`).
 
 **Provenance** values, per the project's ORIGINAL / RECONSTRUCTED / MODERNIZED
 / NEW distinction, are recorded per subsystem once implementation begins.
