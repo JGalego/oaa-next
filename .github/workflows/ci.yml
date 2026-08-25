@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -25,7 +27,10 @@ jobs:
       - name: Install SWI-Prolog
         run: |
           sudo apt-get update
-          sudo apt-get install --yes swi-prolog
+          sudo apt-get install --yes swi-prolog-nox
+
+      - name: Check module loading
+        run: make check
 
       - name: Run test suite
         run: make test
