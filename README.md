@@ -1,7 +1,18 @@
-# oaa-next
+<p align="center">
+  <img src="docs/assets/oaa-logo-art.png" width="100" alt="Classic OAA artwork"><br><img src="docs/assets/oaa-next-logo.svg" width="360" height="60" alt="OAA Next">
+</p>
 
-An independent reimplementation and modernization of SRI International's Open
-Agent Architecture (OAA), extended to support LLM-based agents.
+<p align="center"><strong>Classic agent architecture, modern reasoning.</strong></p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-171a52.svg"></a>
+  <a href="https://www.swi-prolog.org/"><img alt="SWI-Prolog" src="https://img.shields.io/badge/SWI--Prolog-9%2B-19a8b8.svg"></a>
+  <a href="docs/guide/README.md"><img alt="Documentation" src="https://img.shields.io/badge/docs-guide-e0b82d.svg"></a>
+  <img alt="OAA modes: Classic and LLM" src="https://img.shields.io/badge/modes-Classic%20%7C%20LLM-5b6278.svg">
+</p>
+
+An independent reimplementation and modernization of SRI International's [Open
+Agent Architecture](https://web.archive.org/web/20071018083337/https://www.ai.sri.com/~oaa) (OAA), extended to support LLM-based agents.
 
 The aim is to rebuild the original architecture and developer experience as
 faithfully as the evidence permits, using current implementations of the
@@ -13,6 +24,127 @@ The question the project exists to answer:
 > What does the original Open Agent Architecture look like when rebuilt
 > faithfully with modern implementations, and given an LLM as a reasoning
 > substrate?
+
+## Getting started
+
+### Prerequisites
+
+- 🦉 **SWI-Prolog 9 or newer**, available as `swipl` on your `PATH`
+- 🛠️ **GNU Make**
+- 🌐 **A modern web browser** for the Office Assistant demo
+
+#### 🐧 Ubuntu / Debian
+
+Install the prerequisites with APT:
+
+```sh
+sudo apt update
+sudo apt install swi-prolog make
+```
+
+#### 🍎 macOS
+
+Install the prerequisites with Homebrew and the Xcode command-line tools:
+
+```sh
+brew install swi-prolog
+xcode-select --install  # provides make, if it is not already installed
+```
+
+#### 🪟 Windows
+
+Install SWI-Prolog from [swi-prolog.org](https://www.swi-prolog.org/Download.html).
+Using WSL provides the same `make` workflow shown below.
+
+### 1. Get the project
+
+```sh
+git clone https://github.com/JGalego/oaa-next.git
+cd oaa-next
+```
+
+### 2. Verify the toolchain
+
+```sh
+swipl --version
+make test
+```
+
+`make test` runs the complete suite, including tests that start a live
+multi-agent community over TCP.
+
+### 3. Run the Office Assistant demo
+
+```sh
+make demo
+```
+
+The command starts the Facilitator, mail and telephone agents, the scripted
+natural-language agent, and the browser UI. It prints a local URL; open it in
+your browser, click **Do It**, then simulate mail about **security**. The
+installed trigger routes the matching message to the telephone agent.
+
+The demo is self-contained: it makes no external LLM request and requires no
+API key. Press `Ctrl-C` in the terminal to stop the community.
+
+### 4. Explore further
+
+- [`examples/basic/`](examples/basic/) — minimal agents and delegation
+- [`examples/multi-agent/`](examples/multi-agent/) — data, triggers,
+  hierarchies, compound goals, and direct connections
+- [`examples/llm/`](examples/llm/) — optional LLM-backed agents
+- [`docs/guide/README.md`](docs/guide/README.md) — architecture guide,
+  tutorial, and API reference
+
+## LLM mode
+
+LLM support is optional and disabled by default. `OAA_CLASSIC` contains no
+LLM dependency; setting `OAA_MODE=OAA_LLM` enables the separate extension
+under `src/llm/`. The LLM agent remains an ordinary OAA agent: it translates
+natural-language requests into ICL goals, while the Facilitator still handles
+capability matching and delegation.
+
+Three providers are available:
+
+| Provider | Use |
+|---|---|
+| `scripted` | Deterministic, offline responses; the default used by tests and demos |
+| `openai` | OpenAI or an OpenAI-compatible chat-completions endpoint |
+| `anthropic` | Anthropic's Messages API |
+
+### Use OpenAI
+
+Create a key in the [OpenAI platform](https://platform.openai.com/api-keys),
+then run:
+
+```sh
+export OPENAI_API_KEY='sk-...'
+make llm-openai
+```
+
+The default model is `gpt-4o-mini`. Override it with
+`LLM_MODEL=MODEL make llm-openai`. For an OpenAI-compatible local endpoint,
+set `LLM_BASE_URL` instead of an API key.
+
+### Use Anthropic
+
+Create a key in the
+[Anthropic Console](https://console.anthropic.com/settings/keys), then run:
+
+```sh
+export ANTHROPIC_API_KEY='sk-ant-...'
+make llm-anthropic
+```
+
+The default model is `claude-opus-5`. Override it with
+`LLM_MODEL=MODEL make llm-anthropic`.
+
+Both targets start the Facilitator and example agents, run the same
+provider-independent client, then stop the temporary community. Keep API keys
+out of source files and Git; hosted API usage may incur charges.
+
+See [`docs/guide/llm-agents.md`](docs/guide/llm-agents.md) for provider
+internals, the meta-agent integration, and architectural boundaries.
 
 ## Status
 
@@ -48,61 +180,18 @@ Time triggers and the `plan_query`/`execute_plan` meta-agent hooks are
 deferred, and listed as such in
 [`research/compatibility-matrix.md`](research/compatibility-matrix.md).
 
-## Running it
+## Historical Source Code
 
-```sh
-make test                     # the whole suite, including a live community
+The historical source consulted is the original **OAA 2.3.2 build 02** source
+inside SRI's `oaa2.3.2_02.zip` distribution. It includes the Prolog
+Facilitator (`src/facilitator/fac.pl`), agent libraries, transports, tools,
+tests, and examples. The archive is **not committed to this repository**;
+its original download URL, SHA-256 hash, inventory, and reproduction command
+are recorded in
+[`research/recovered-artifacts.md`](research/recovered-artifacts.md).
 
-# or start a community by hand
-swipl bin/facilitator.pl -- -write_setup_file setup.pl &
-swipl examples/basic/square_agent.pl -- &
-swipl examples/basic/greet_agent.pl -- &
-swipl examples/basic/client.pl --
-```
-
-The client prints `square(7) = 49`, backtracks over the greetings, and fails
-on a goal nothing can solve. It names no agent, no host and no port; the
-Facilitator works out who to ask.
-
-`examples/multi-agent/` has data solvables, triggers, compound goals, direct
-connect, facilitator hierarchies and meta-agents; `examples/llm/` has the
-optional LLM agent running against a scripted provider, so it needs no
-network access or API key. The Agent Development Toolkit is reachable as
-`bin/oaa-shell.pl`, `bin/oaa-debug.pl`, `bin/oaa-monitor.pl`,
-`bin/oaa-startit.pl` and `bin/oaa-new-agent.pl`; `bin/oaa-mcp-server.pl`
-exposes a running community over MCP.
-
-## What Phase 0 established
-
-The original distribution survives. SRI's host, `www.ai.sri.com/~oaa`, is
-still serving the complete OAA 2.3.2 tree: source, runtime and documentation.
-No archive was needed. Provenance and SHA-256 hashes for everything consulted
-are in [`research/recovered-artifacts.md`](research/recovered-artifacts.md).
-
-OAA 2.3.2 is LGPL-2.1-or-later. The frequently cited FAQ describes a
-non-commercial "community license", which held for 2.3.0 and 2.3.1; the final
-release, in June 2007, relicensed the software. The license file, the
-distribution's own licensing statement, the release notes and the per-file
-headers all agree. Details, including what the superseded license said, are in
-[`research/licensing.md`](research/licensing.md).
-
-The Facilitator is written in Prolog, and its source was published. Under the
-older non-commercial license the Facilitator was executable-only and could not
-be modified or disassembled. Under the LGPL, `fac.pl` — 140 KB of Prolog by
-Adam Cheyer and David Martin — ships in the distribution, which makes a
-faithful reconstruction far more tractable than it would have been a decade
-ago.
-
-The historical Prolog was SICStus, with Quintus as a fallback. OAA carried a
-dialect-compatibility layer and discovered the running system at runtime, so
-targeting SWI-Prolog adds a third dialect to a design that already expected
-more than one — see
-[`research/compatibility-matrix.md`](research/compatibility-matrix.md).
-
-## Approach to the historical code
-
-The recovered source is used as the specification of record for behaviour that
-the documentation leaves underspecified. oaa-next code is authored
+That historical source is used as the specification of record for behaviour
+that the documentation leaves underspecified. oaa-next code is authored
 independently rather than ported.
 
 The LGPL finding means deriving directly from OAA 2.3.2 would also be lawful,

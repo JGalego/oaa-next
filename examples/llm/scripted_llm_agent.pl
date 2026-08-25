@@ -26,7 +26,8 @@ run :-
 %   Standing in for a model that has read the community's capabilities and
 %   written an ICL goal against them.
 script :-
+    scripted_reply("square the number 3 and greet the world",
+                   "(square(3, N), greet(world, G))"),
     scripted_reply("square", "square(7, Answer)"),
     scripted_reply("greet the world", "greet(world, Greeting)"),
-    scripted_reply("both", "(square(3, N), greet(world, G))"),
     scripted_reply("impossible", "cannot").

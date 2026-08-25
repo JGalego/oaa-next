@@ -4,326 +4,496 @@
 <meta charset="utf-8">
 <title>Open Agent Architecture</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   :root {
-    --wall: #c7d6dd;
-    --wall-dark: #b3c5ce;
-    --wood: #a6764a;
-    --wood-dark: #7a5230;
-    --rope: #c9a227;
-    --titlebar: #171a52;
-    --status-bg: #8fe3ff;
-    --status-fg: #0b2447;
+    --wall: #b8c8d0;
+    --wall-dark: #a0b0b8;
+    --wood: #a07048;
+    --wood-dark: #704828;
+    --rope-a: #c8a828;
+    --rope-b: #887018;
+    --titlebar: #000080;
+    --status-bg: #00e8e8;
+    --status-fg: #000040;
+    --px-font: 'Press Start 2P', 'Courier New', monospace;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: #3a3a3a;
-    font-family: "Segoe UI", Tahoma, Verdana, Arial, sans-serif;
+    background: #282828;
+    font-family: var(--px-font);
     display: flex;
     justify-content: center;
     padding: 24px 8px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
   }
   #frame {
-    width: 900px;
+    width: 640px;
     max-width: 100%;
-    background: #ddd;
-    border: 2px solid #222;
-    box-shadow: 0 8px 30px rgba(0,0,0,.5);
+    background: #c0c0c0;
+    border: 3px outset #e0e0e0;
+    box-shadow: 4px 4px 0 #000;
   }
   #titlebar {
     background: var(--titlebar);
     color: #fff;
     text-align: center;
-    font-weight: bold;
-    font-size: 15px;
-    letter-spacing: .5px;
-    padding: 6px 0;
+    font-family: var(--px-font);
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 5px 0;
     position: relative;
-  }
-  #corner-icons {
-    position: absolute;
-    left: 6px;
-    top: 4px;
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
-  .corner-badge {
-    width: 26px; height: 26px;
-    background: #eee;
-    border: 1px solid #666;
-    border-radius: 3px;
-    display: flex; align-items: center; justify-content: center;
+    border-bottom: 2px solid #000;
   }
   #rope {
-    height: 9px;
+    height: 8px;
     background: repeating-linear-gradient(
-      -45deg,
-      var(--rope) 0 4px,
-      #8a6a12 4px 8px
+      90deg,
+      var(--rope-a) 0 4px,
+      var(--rope-b) 4px 8px
     );
-    border-bottom: 1px solid #6b5210;
+    border-bottom: 2px solid #504008;
   }
-  #room-wrap { position: relative; background: var(--wall); }
+  #room-wrap {
+    position: relative;
+    background: var(--wall);
+    border-bottom: 2px solid #000;
+  }
   #room { display: block; width: 100%; height: auto; }
+
+  /* -- portrait inset (top-left corner overlay) -- */
+  #portrait {
+    position: absolute;
+    left: 8px; top: 8px;
+    width: 72px;
+    background: #c0c0c0;
+    border: 2px inset #808080;
+    padding: 2px;
+  }
+  #portrait-img {
+    display: block;
+    width: 68px; height: 68px;
+    background: #6090a0;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  #portrait-bars {
+    display: flex; gap: 2px;
+    padding: 3px 2px 2px;
+  }
+  .pbar {
+    flex: 1; height: 6px;
+    border: 1px solid #000;
+  }
+  .pbar-g { background: #00c800; }
+  .pbar-y { background: #c8c800; }
+
+  /* -- name tag & ring tag -- */
   .tag {
     position: absolute;
-    background: #fdf6c9;
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 2px 7px;
-    font-size: 11px;
-    color: #222;
+    background: #f8f0c0;
+    border: 2px solid #000;
+    padding: 2px 6px;
+    font-family: var(--px-font);
+    font-size: 7px;
+    color: #000;
     white-space: nowrap;
-    box-shadow: 1px 1px 3px rgba(0,0,0,.3);
   }
-  .tag::after {
-    content: "";
-    position: absolute;
-    bottom: -6px; left: 14px;
-    border: 6px solid transparent;
-    border-top-color: #fdf6c9;
+  /* left/top anchor the tag's bottom-center to the top of desk1's desktop
+     (see the SVG below: desk1 spans x=98..212, tabletop top y=194 out of 280) */
+  #owner-tag {
+    left: 24.2%;
+    top: 69.3%;
+    transform: translate(-50%, -100%);
   }
-  #owner-tag { left: 8%; top: 62%; }
   #ring-tag {
-    left: 58%; top: 40%;
-    background: #ffe1a8;
+    left: 54%; top: 38%;
+    background: #f8d080;
     display: none;
   }
-  #ring-tag::after { border-top-color: #ffe1a8; }
+
+  /* -- status bar -- */
   #status {
     background: var(--status-bg);
     color: var(--status-fg);
-    font-weight: bold;
-    font-size: 13px;
-    padding: 5px 10px;
+    font-family: var(--px-font);
+    font-size: 8px;
+    padding: 5px 8px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 2px solid #008080;
   }
+
+  /* -- command bar -- */
   #cmdbar {
     display: flex;
-    border-top: 1px solid #999;
+    border-top: 1px solid #808080;
+    background: #c0c0c0;
   }
   #cmdtext {
     flex: 1;
-    font-size: 16px;
-    font-weight: bold;
-    padding: 10px 12px;
-    border: none;
-    border-right: 1px solid #999;
+    font-family: var(--px-font);
+    font-size: 9px;
+    padding: 8px 8px;
+    border: 2px inset #808080;
+    background: #fff;
+    outline: none;
   }
   #doit {
-    width: 84px;
-    font-weight: bold;
-    font-size: 14px;
-    background: linear-gradient(#f4f4f4, #c9c9c9);
-    border: 1px solid #888;
-    border-left: none;
+    width: 72px;
+    font-family: var(--px-font);
+    font-size: 8px;
+    background: #c0c0c0;
+    border: 2px outset #e0e0e0;
     cursor: pointer;
   }
-  #doit:active { background: linear-gradient(#c9c9c9, #f4f4f4); }
+  #doit:active { border-style: inset; }
+
+  /* -- quick-mail strip -- */
   #quickmail {
     display: flex;
-    gap: 8px;
-    padding: 8px 10px;
-    background: #eee;
-    border-top: 1px solid #ccc;
+    gap: 6px;
+    padding: 6px 8px;
+    background: #d0d0d0;
+    border-top: 1px solid #a0a0a0;
     flex-wrap: wrap;
+    align-items: center;
+  }
+  #quickmail span {
+    font-family: var(--px-font);
+    font-size: 7px;
+    color: #404040;
   }
   #quickmail button {
-    font-size: 12px;
-    padding: 5px 9px;
-    border: 1px solid #888;
-    background: #fff;
-    border-radius: 3px;
+    font-family: var(--px-font);
+    font-size: 7px;
+    padding: 4px 6px;
+    border: 2px outset #e0e0e0;
+    background: #c0c0c0;
     cursor: pointer;
   }
-  #quickmail button:hover { background: #f0f0f0; }
+  #quickmail button:active { border-style: inset; }
+
+  /* -- activity log -- */
   #log {
-    background: #111;
-    color: #8f8;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 12px;
-    padding: 8px 10px;
-    height: 130px;
+    background: #000;
+    color: #00e800;
+    font-family: var(--px-font);
+    font-size: 8px;
+    padding: 6px 8px;
+    height: 110px;
     overflow-y: auto;
     border-top: 2px solid #000;
   }
-  #log div { white-space: pre-wrap; margin-bottom: 2px; }
-  #log .err { color: #f88; }
+  #log div { white-space: pre-wrap; margin-bottom: 3px; line-height: 1.4; }
+  #log .err { color: #e84040; }
+
+  /* -- caption -- */
   #caption {
+    font-family: Arial, sans-serif;
     font-size: 11px;
-    color: #ccc;
+    color: #a0a0a0;
     text-align: center;
     padding: 6px 10px 14px;
-    max-width: 900px;
+    max-width: 640px;
   }
-  #caption a { color: #9cf; }
 </style>
 </head>
 <body>
 <div>
 <div id="frame">
-  <div id="titlebar">
-    <div id="corner-icons">
-      <div class="corner-badge" title="office occupant">
-        <svg viewBox="0 0 24 24" width="16" height="16">
-          <circle cx="12" cy="8" r="5" fill="#333"/>
-          <path d="M2 22 C2 14 22 14 22 22 Z" fill="#333"/>
-        </svg>
-      </div>
-      <div class="corner-badge" title="oaa-next">
-        <svg viewBox="0 0 24 24" width="16" height="16">
-          <circle cx="6" cy="6" r="2.5" fill="#333"/>
-          <circle cx="18" cy="6" r="2.5" fill="#333"/>
-          <circle cx="6" cy="18" r="2.5" fill="#333"/>
-          <circle cx="18" cy="18" r="2.5" fill="#333"/>
-          <circle cx="12" cy="12" r="2.5" fill="#333"/>
-        </svg>
-      </div>
-    </div>
-    Open Agent Architecture
-  </div>
+  <div id="titlebar">Open Agent Architecture</div>
   <div id="rope"></div>
 
   <div id="room-wrap">
-    <svg id="room" viewBox="0 0 900 360" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <pattern id="wallhatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-          <rect width="6" height="6" fill="#c7d6dd"/>
-          <line x1="0" y1="0" x2="0" y2="6" stroke="#b9c9d1" stroke-width="1"/>
-        </pattern>
-        <linearGradient id="rainbow" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#ff4d4d"/>
-          <stop offset="30%" stop-color="#ffd24d"/>
-          <stop offset="60%" stop-color="#4dff88"/>
-          <stop offset="100%" stop-color="#4d8bff"/>
-        </linearGradient>
-      </defs>
+    <svg id="room" viewBox="0 0 640 280" xmlns="http://www.w3.org/2000/svg"
+         shape-rendering="crispEdges">
 
-      <!-- wall + floor -->
-      <rect x="0" y="0" width="900" height="330" fill="url(#wallhatch)"/>
-      <rect x="0" y="330" width="900" height="30" fill="#8a6a45"/>
-      <rect x="0" y="330" width="900" height="4" fill="#6b4e30"/>
-
-      <!-- plant -->
-      <g transform="translate(45,150)">
-        <path d="M20 140 L0 140 L6 60 L34 60 L40 140 Z" fill="#8a5a34"/>
-        <path d="M20 60 C-10 40 -6 -10 22 5 C20 -30 60 -30 55 8 C85 -8 88 40 55 55 C70 75 30 85 20 60 Z" fill="#3f8a4c"/>
-        <path d="M20 60 C0 45 5 5 20 10" stroke="#2e6b3a" stroke-width="3" fill="none"/>
+      <!-- wall -->
+      <rect x="0" y="0" width="640" height="256" fill="#b8c8d0"/>
+      <!-- wall texture (vertical lines, faint) -->
+      <g stroke="#a8b8c0" stroke-width="1">
+        <line x1="80" y1="0" x2="80" y2="256"/>
+        <line x1="160" y1="0" x2="160" y2="256"/>
+        <line x1="240" y1="0" x2="240" y2="256"/>
+        <line x1="320" y1="0" x2="320" y2="256"/>
+        <line x1="400" y1="0" x2="400" y2="256"/>
+        <line x1="480" y1="0" x2="480" y2="256"/>
+        <line x1="560" y1="0" x2="560" y2="256"/>
+      </g>
+      <!-- floor -->
+      <rect x="0" y="256" width="640" height="24" fill="#886840"/>
+      <rect x="0" y="256" width="640" height="3" fill="#604828"/>
+      <rect x="0" y="250" width="640" height="6" fill="#d8c8a8"/>
+      <rect x="0" y="250" width="640" height="2" fill="#705838"/>
+      <g stroke="#705030" stroke-width="1">
+        <line x1="80" y1="259" x2="80" y2="280"/>
+        <line x1="190" y1="259" x2="190" y2="280"/>
+        <line x1="320" y1="259" x2="320" y2="280"/>
+        <line x1="465" y1="259" x2="465" y2="280"/>
+        <line x1="570" y1="259" x2="570" y2="280"/>
       </g>
 
-      <!-- floor lamp -->
-      <g transform="translate(115,70)">
-        <path d="M0 40 C-25 10 25 10 0 40 Z" fill="#f5f2e8" stroke="#ccc"/>
-        <rect x="-2" y="40" width="4" height="90" fill="#8a6a45"/>
-        <ellipse cx="0" cy="132" rx="22" ry="6" fill="#6b4e30"/>
-      </g>
-
-      <!-- framed abstract picture -->
-      <g transform="translate(175,55)">
-        <rect x="0" y="0" width="90" height="65" fill="#f2efe4" stroke="#5a4a30" stroke-width="4"/>
-        <path d="M10 50 C30 10 60 55 82 15" stroke="#3b6ea5" stroke-width="5" fill="none" stroke-linecap="round"/>
-      </g>
-
-      <!-- desk 1 with small lamp, tagged as the owner's desk -->
-      <g id="desk1" transform="translate(150,225)">
-        <rect x="0" y="30" width="110" height="14" fill="var(--wood)" stroke="var(--wood-dark)"/>
-        <rect x="6" y="44" width="8" height="55" fill="var(--wood-dark)"/>
-        <rect x="96" y="44" width="8" height="55" fill="var(--wood-dark)"/>
-        <path d="M40 30 L34 12 L54 12 L48 30 Z" fill="#b28ad1"/>
-        <rect x="42" y="2" width="4" height="10" fill="#8a6a45"/>
-      </g>
-
-      <!-- wall clock -->
-      <g id="clock" transform="translate(430,70)">
-        <circle r="34" fill="#fff8ea" stroke="url(#rainbow)" stroke-width="7"/>
-        <text id="clocktext" x="0" y="7" text-anchor="middle" font-size="18" font-weight="bold" fill="#b5321f" font-family="Consolas, monospace">--:--</text>
-      </g>
-
-      <!-- desk 2 with telephone, and a coat pole -->
-      <g id="desk2" transform="translate(430,225)">
-        <rect x="-10" y="30" width="120" height="14" fill="var(--wood)" stroke="var(--wood-dark)"/>
-        <rect x="-4" y="44" width="8" height="55" fill="var(--wood-dark)"/>
-        <rect x="94" y="44" width="8" height="55" fill="var(--wood-dark)"/>
-        <!-- phone base with rotary dial -->
-        <rect x="14" y="14" width="52" height="18" rx="3" fill="#e8dcc0" stroke="#a99873"/>
-        <circle cx="40" cy="23" r="9" fill="#f5f0e0" stroke="#a99873"/>
-        <circle cx="40" cy="23" r="2" fill="#a99873"/>
-        <!-- coiled cord to the receiver's cradle -->
-        <path d="M40 14 C34 4 46 2 40 -4" stroke="#333" stroke-width="1.5" fill="none"/>
-        <!-- handset, resting diagonally across the base -->
-        <g transform="translate(40,4) rotate(-18)">
-          <rect x="-24" y="-5" width="48" height="10" rx="5" fill="#1a1a1a"/>
-          <circle cx="-24" cy="0" r="8" fill="#1a1a1a"/>
-          <circle cx="24" cy="0" r="8" fill="#1a1a1a"/>
+      <!-- == tall potted plant, matching the original room silhouette == -->
+      <g transform="translate(18,0)">
+        <polygon points="14,216 42,216 38,250 18,250" fill="#8c5330" stroke="#59321c"/>
+        <rect x="11" y="211" width="34" height="7" fill="#a96d41" stroke="#59321c"/>
+        <g fill="none" stroke-linecap="square">
+          <path d="M27 212 L14 119 L8 82" stroke="#2f6f40" stroke-width="3"/>
+          <path d="M28 212 L31 112 L44 69" stroke="#387f48" stroke-width="3"/>
+          <path d="M29 212 L20 142 L22 62" stroke="#327444" stroke-width="3"/>
+          <path d="M31 212 L42 141 L54 108" stroke="#3d8650" stroke-width="3"/>
+          <path d="M25 212 L8 159 L3 128" stroke="#458c52" stroke-width="3"/>
+        </g>
+        <g fill="#4a9655">
+          <polygon points="13,120 2,105 14,110 22,127"/>
+          <polygon points="21,95 11,79 23,86 28,105"/>
+          <polygon points="31,112 43,92 42,113 33,128"/>
+          <polygon points="41,142 55,126 52,146 39,158"/>
+          <polygon points="9,159 0,145 12,150 19,169"/>
         </g>
       </g>
-      <g transform="translate(575,90)">
-        <rect x="-3" y="0" width="6" height="140" fill="#8a6a45"/>
-        <ellipse cx="0" cy="0" rx="14" ry="5" fill="#6b4e30"/>
+
+      <!-- == floor lamp (base on floor) == -->
+      <g transform="translate(80,0)">
+        <!-- base sits on floor -->
+        <rect x="-12" y="250" width="24" height="6" fill="#604828"/>
+        <!-- pole -->
+        <rect x="-2" y="120" width="4" height="130" fill="#886840"/>
+        <!-- shade -->
+        <polygon points="-16,96 16,96 8,120 -8,120" fill="#f0e8d0" stroke="#c0b890" stroke-width="1"/>
       </g>
 
-      <!-- mailbox + trash -->
-      <g id="mailbox" transform="translate(660,190)">
-        <rect x="0" y="0" width="70" height="55" fill="var(--wood)" stroke="var(--wood-dark)" stroke-width="2"/>
-        <rect x="8" y="10" width="54" height="16" fill="#f4e9c8" stroke="#a99873"/>
-        <text x="35" y="22" text-anchor="middle" font-size="11" font-weight="bold" fill="#b5321f" font-family="Arial">MAIL</text>
-        <rect x="30" y="55" width="10" height="35" fill="var(--wood-dark)"/>
-        <ellipse cx="35" cy="92" rx="20" ry="5" fill="#5a4530"/>
-      </g>
-      <g transform="translate(745,300)">
-        <path d="M0 30 L6 0 L26 0 L32 30 Z" fill="#c0392b"/>
+      <!-- == oval abstract print in place of the original wall logo == -->
+      <g transform="translate(130,48)">
+        <rect x="0" y="0" width="76" height="58" fill="#d8cdb7" stroke="#55442f" stroke-width="3"/>
+        <ellipse cx="38" cy="29" rx="29" ry="21" fill="#ede7d6" stroke="#7a674a" stroke-width="2"/>
+        <polygon points="16,35 27,18 36,34 45,14 61,39 61,44 16,44" fill="#5e8d6a"/>
+        <rect x="17" y="42" width="43" height="3" fill="#477b91"/>
       </g>
 
-      <!-- door -->
-      <g id="door" transform="translate(735,60)">
-        <rect x="0" y="0" width="75" height="270" fill="#c9a876" stroke="#7a5230" stroke-width="3"/>
-        <rect x="8" y="15" width="59" height="110" fill="none" stroke="#a9895c" stroke-width="3"/>
-        <rect x="8" y="140" width="59" height="110" fill="none" stroke="#a9895c" stroke-width="3"/>
-        <circle cx="62" cy="140" r="5" fill="#d4af37" stroke="#8a6a1a"/>
+      <!-- == wooden pedestal desk with drawers == -->
+      <g transform="translate(98,0)">
+        <rect x="0" y="194" width="114" height="11" fill="#ae7b4d" stroke="#664225" stroke-width="2"/>
+        <rect x="4" y="205" width="106" height="5" fill="#80542f"/>
+        <!-- drawer pedestals, leaving a clear knee space -->
+        <rect x="5" y="210" width="28" height="40" fill="#987047" stroke="#5e4027" stroke-width="2"/>
+        <rect x="81" y="210" width="28" height="40" fill="#987047" stroke="#5e4027" stroke-width="2"/>
+        <line x1="7" y1="224" x2="31" y2="224" stroke="#5e4027" stroke-width="2"/>
+        <line x1="83" y1="224" x2="107" y2="224" stroke="#5e4027" stroke-width="2"/>
+        <rect x="17" y="216" width="5" height="2" fill="#d0ad65"/>
+        <rect x="93" y="216" width="5" height="2" fill="#d0ad65"/>
+        <rect x="17" y="235" width="5" height="2" fill="#d0ad65"/>
+        <rect x="93" y="235" width="5" height="2" fill="#d0ad65"/>
+        <rect x="4" y="250" width="30" height="6" fill="#5e4027"/>
+        <rect x="80" y="250" width="30" height="6" fill="#5e4027"/>
+        <!-- desk lamp on the surface -->
+        <rect x="37" y="178" width="3" height="16" fill="#705536"/>
+        <polygon points="27,178 50,178 44,166 34,166" fill="#a56ec0" stroke="#704a80"/>
       </g>
 
-      <!-- bookshelf / filing cabinet -->
-      <g id="cabinet" transform="translate(900,60)">
-        <rect x="-90" y="0" width="90" height="270" fill="#c9a876" stroke="#7a5230" stroke-width="3"/>
-        <line x1="-90" y1="68" x2="0" y2="68" stroke="#7a5230" stroke-width="2"/>
-        <line x1="-90" y1="136" x2="0" y2="136" stroke="#7a5230" stroke-width="2"/>
-        <line x1="-90" y1="204" x2="0" y2="204" stroke="#7a5230" stroke-width="2"/>
-        <rect x="-40" y="42" width="10" height="24" fill="#b5321f"/>
-        <rect x="-55" y="46" width="9" height="20" fill="#2f5aa8"/>
-        <rect x="-30" y="112" width="9" height="22" fill="#3f8a4c"/>
+      <!-- == rounded digital wall clock == -->
+      <g id="clock" transform="translate(310,60)">
+        <!-- stepped octagonal bezel, like the round rainbow clock in the reference -->
+        <polygon points="-14,-23 14,-23 23,-14 23,14 14,23 -14,23 -23,14 -23,-14"
+                 fill="#236f73" stroke="#173f46" stroke-width="2"/>
+        <polygon points="-13,-20 13,-20 20,-13 20,13 13,20 -13,20 -20,13 -20,-13"
+                 fill="#df3c2e"/>
+        <polygon points="-11,-17 11,-17 17,-11 17,11 11,17 -11,17 -17,11 -17,-11"
+                 fill="#e2b82f"/>
+        <polygon points="-9,-14 9,-14 14,-9 14,9 9,14 -9,14 -14,9 -14,-9"
+                 fill="#e9e2c5" stroke="#594d3e" stroke-width="1"/>
+        <rect x="-12" y="-6" width="24" height="12" fill="#d4d1ad" stroke="#6c604d"/>
+        <text id="clocktext" x="0" y="2.5" text-anchor="middle"
+              font-family="'Press Start 2P', monospace" font-size="5.5"
+              letter-spacing="-0.4" fill="#8f1d22">--:--</text>
+      </g>
+
+      <!-- == compact telephone bureau, copied from the reference proportions == -->
+      <g id="desk2" transform="translate(270,0)">
+        <!-- overhanging top and moulded apron -->
+        <rect x="0" y="199" width="108" height="8" fill="#b48850" stroke="#4f3824" stroke-width="2"/>
+        <rect x="4" y="207" width="100" height="5" fill="#725035" stroke="#4f3824"/>
+
+        <!-- left and right drawer banks -->
+        <rect x="6" y="212" width="31" height="38" fill="#c4a66e" stroke="#503923" stroke-width="2"/>
+        <rect x="71" y="212" width="31" height="38" fill="#c4a66e" stroke="#503923" stroke-width="2"/>
+        <rect x="9" y="215" width="25" height="14" fill="#d8c28d" stroke="#7b5b38"/>
+        <rect x="9" y="232" width="25" height="15" fill="#d8c28d" stroke="#7b5b38"/>
+        <rect x="74" y="215" width="25" height="14" fill="#d8c28d" stroke="#7b5b38"/>
+        <rect x="74" y="232" width="25" height="15" fill="#d8c28d" stroke="#7b5b38"/>
+        <!-- shallow centre drawer over the knee well -->
+        <rect x="38" y="212" width="32" height="12" fill="#d8c28d" stroke="#503923" stroke-width="2"/>
+        <g fill="#735122">
+          <rect x="20" y="220" width="4" height="2"/>
+          <rect x="20" y="238" width="4" height="2"/>
+          <rect x="84" y="220" width="4" height="2"/>
+          <rect x="84" y="238" width="4" height="2"/>
+          <rect x="52" y="217" width="4" height="2"/>
+        </g>
+        <!-- plinth feet -->
+        <rect x="4" y="250" width="35" height="6" fill="#553a24"/>
+        <rect x="69" y="250" width="35" height="6" fill="#553a24"/>
+
+        <!-- cream rotary telephone sitting flat on the desktop (top at y=199) -->
+        <!-- rectangular base, bottom flush with the desktop -->
+        <rect x="30" y="188" width="48" height="11" fill="#d7c59b" stroke="#4d4233" stroke-width="2"/>
+        <rect x="28" y="185" width="52" height="4" fill="#c9b58c" stroke="#4d4233" stroke-width="2"/>
+        <!-- rotary dial recessed into the base -->
+        <circle cx="54" cy="193" r="5" fill="#eee4ca" stroke="#8b7758" stroke-width="1"/>
+        <circle cx="54" cy="193" r="1.5" fill="#8b7758"/>
+        <!-- cradle bumps -->
+        <rect x="31" y="183" width="6" height="3" fill="#4d4233"/>
+        <rect x="71" y="183" width="6" height="3" fill="#4d4233"/>
+        <!-- black handset resting flat across the cradle -->
+        <rect x="30" y="178" width="48" height="6" fill="#24221e"/>
+        <rect x="26" y="176" width="11" height="10" fill="#24221e"/>
+        <rect x="71" y="176" width="11" height="10" fill="#24221e"/>
+        <!-- earpiece and mouthpiece caps -->
+        <rect x="28" y="174" width="7" height="3" fill="#35322b"/>
+        <rect x="73" y="174" width="7" height="3" fill="#35322b"/>
+        <!-- coiled cord -->
+        <path d="M79 194 q6 2 0 4 q-6 2 0 4" fill="none" stroke="#29251f" stroke-width="1.5"/>
+      </g>
+
+      <!-- == coat rack (stands on floor) == -->
+      <g transform="translate(420,0)">
+        <!-- base on floor -->
+        <rect x="-10" y="250" width="20" height="6" fill="#604828"/>
+        <!-- pole -->
+        <rect x="-2" y="130" width="4" height="120" fill="#886840"/>
+        <!-- hooks at top -->
+        <rect x="-10" y="126" width="6" height="4" fill="#604828"/>
+        <rect x="4" y="126" width="6" height="4" fill="#604828"/>
+        <rect x="-3" y="122" width="6" height="4" fill="#604828"/>
+      </g>
+
+      <!-- == freestanding mail pedestal from the reference scene == -->
+      <g id="mailbox" transform="translate(432,0)">
+        <!-- broad cap, panelled wooden box and lower moulding -->
+        <rect x="2" y="174" width="58" height="6" fill="#5c412a"/>
+        <rect x="0" y="178" width="62" height="48" fill="#a87948" stroke="#503720" stroke-width="2"/>
+        <rect x="5" y="183" width="52" height="37" fill="#bd925d" stroke="#74502f" stroke-width="2"/>
+        <!-- recessed mail slot -->
+        <rect x="11" y="189" width="40" height="15" fill="#e4d4a8" stroke="#66513a" stroke-width="2"/>
+        <rect x="15" y="193" width="32" height="7" fill="#f1e5c1"/>
+        <text x="31" y="199" text-anchor="middle" font-family="'Press Start 2P', monospace"
+          font-size="6" fill="#a12620">MAIL</text>
+        <!-- lower door panel and brass pull -->
+        <rect x="12" y="208" width="38" height="8" fill="#aa7e4d" stroke="#74502f"/>
+        <rect x="29" y="211" width="5" height="2" fill="#d4ad42"/>
+        <rect x="4" y="226" width="54" height="5" fill="#604126"/>
+        <!-- central pedestal and stable foot -->
+        <rect x="27" y="231" width="9" height="19" fill="#6b4729"/>
+        <rect x="17" y="250" width="29" height="6" fill="#53351e"/>
+      </g>
+
+      <!-- == trash can (sits on floor) == -->
+      <g transform="translate(500,0)">
+        <rect x="0" y="234" width="24" height="22" fill="#c03020" stroke="#802010" stroke-width="1"/>
+        <rect x="-2" y="232" width="28" height="4" fill="#a02818"/>
+      </g>
+
+      <!-- == framed office door with space on both sides == -->
+      <g id="door" transform="translate(520,28)">
+        <rect x="-5" y="-5" width="69" height="233" fill="#765430" stroke="#4d3822" stroke-width="2"/>
+        <rect x="0" y="0" width="59" height="228" fill="#c0a060" stroke="#705028" stroke-width="3"/>
+        <!-- panels -->
+        <rect x="7" y="13" width="45" height="88" fill="#c9ac6b" stroke="#957747" stroke-width="2"/>
+        <rect x="7" y="113" width="45" height="104" fill="#c9ac6b" stroke="#957747" stroke-width="2"/>
+        <!-- knob -->
+        <rect x="45" y="108" width="7" height="7" fill="#d0a020" stroke="#70500b" stroke-width="1"/>
+      </g>
+
+      <!-- == fire extinguisher (on wall near door) == -->
+      <g transform="translate(600,100)">
+        <rect x="0" y="0" width="8" height="24" fill="#e02020" stroke="#a01010" stroke-width="1"/>
+        <rect x="1" y="-4" width="6" height="6" fill="#808080"/>
+      </g>
+
+      <!-- == bookshelf (bottom sits on floor) == -->
+      <g id="cabinet" transform="translate(612,0)">
+        <rect x="0" y="128" width="28" height="128" fill="#c0a060" stroke="#705028" stroke-width="2"/>
+        <!-- shelves -->
+        <line x1="0" y1="160" x2="28" y2="160" stroke="#705028" stroke-width="2"/>
+        <line x1="0" y1="192" x2="28" y2="192" stroke="#705028" stroke-width="2"/>
+        <line x1="0" y1="224" x2="28" y2="224" stroke="#705028" stroke-width="2"/>
+        <!-- books -->
+        <rect x="6" y="134" width="6" height="24" fill="#c02020"/>
+        <rect x="14" y="138" width="5" height="20" fill="#2040a0"/>
+        <rect x="21" y="136" width="5" height="22" fill="#208040"/>
+        <rect x="8" y="166" width="5" height="24" fill="#a06020"/>
+        <rect x="16" y="164" width="7" height="26" fill="#404080"/>
+        <rect x="6" y="198" width="8" height="24" fill="#c08020"/>
+        <rect x="18" y="200" width="6" height="22" fill="#206060"/>
       </g>
     </svg>
 
-    <div class="tag" id="owner-tag">Adam Cheyer's office (1993)</div>
+    <!-- portrait overlay (top-left, like the original screenshot) -->
+    <div id="portrait">
+      <svg id="portrait-img" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"
+           shape-rendering="crispEdges">
+        <!-- pixel-art head/shoulders silhouette -->
+        <rect width="32" height="32" fill="#6090a0"/>
+        <!-- hair -->
+        <rect x="10" y="4" width="12" height="4" fill="#604020"/>
+        <rect x="8" y="6" width="16" height="4" fill="#604020"/>
+        <!-- face -->
+        <rect x="10" y="8" width="12" height="10" fill="#e0b888"/>
+        <rect x="8" y="10" width="2" height="6" fill="#e0b888"/>
+        <rect x="22" y="10" width="2" height="6" fill="#e0b888"/>
+        <!-- eyes -->
+        <rect x="12" y="11" width="2" height="2" fill="#303030"/>
+        <rect x="18" y="11" width="2" height="2" fill="#303030"/>
+        <!-- mouth -->
+        <rect x="13" y="15" width="6" height="1" fill="#c08060"/>
+        <!-- neck -->
+        <rect x="14" y="18" width="4" height="3" fill="#e0b888"/>
+        <!-- shirt / shoulders -->
+        <rect x="6" y="21" width="20" height="11" fill="#3060a0"/>
+        <rect x="4" y="23" width="4" height="9" fill="#3060a0"/>
+        <rect x="24" y="23" width="4" height="9" fill="#3060a0"/>
+        <!-- collar -->
+        <rect x="13" y="21" width="6" height="2" fill="#e0e0e0"/>
+      </svg>
+      <div id="portrait-bars">
+        <div class="pbar pbar-g"></div>
+        <div class="pbar pbar-g"></div>
+        <div class="pbar pbar-y"></div>
+      </div>
+    </div>
+
+    <div class="tag" id="owner-tag">office</div>
     <div class="tag" id="ring-tag">ring ring&hellip;</div>
   </div>
 
-  <div id="status">Connected to server.&nbsp;&nbsp;Agents are now active.</div>
+  <div id="status">
+    <span id="status-left">Connected to server.&nbsp;&nbsp;Agents are now active.</span>
+    <span id="status-right"></span>
+  </div>
 
   <div id="cmdbar">
     <input id="cmdtext" type="text"
       value='When mail arrives for me about &quot;security&quot; get it to me by telephone.'>
-    <button id="doit">Do It!</button>
+    <button id="doit">Do It</button>
   </div>
 
   <div id="quickmail">
-    <span style="align-self:center;font-size:12px;color:#333;">simulate mail arriving:</span>
+    <span>simulate mail:</span>
     <button data-topic="security" data-from="alice"
-      data-body="Please rotate the shared credentials by Friday.">about &quot;security&quot;</button>
+      data-body="Please rotate the shared credentials by Friday.">&quot;security&quot;</button>
     <button data-topic="lunch" data-from="bob"
-      data-body="Want to grab lunch at noon?">about &quot;lunch&quot;</button>
+      data-body="Want to grab lunch at noon?">&quot;lunch&quot;</button>
   </div>
 
   <div id="log"></div>
 
   <div id="caption">
-    A hand-drawn reconstruction of the interface shown in Adam Cheyer's own
-    "Office Demos" screenshot, cited with hashes in
-    <code>research/office-demo.md</code> -- not a copy of that (copyrighted)
-    image. The command below is quoted verbatim from it. This page is an
-    ordinary OAA "User Interface Agent" (<code>office_ui_agent.pl</code>)
-    talking to the same running community <code>office_client.pl</code>
-    does, over plain HTTP.
+    A pixel-art reconstruction of the original OAA "Automated Office" demo
+    interface (1993). This page is an ordinary OAA "User Interface Agent"
+    (<code>office_ui_agent.pl</code>) talking to the same running community
+    <code>office_client.pl</code> does, over HTTP.
   </div>
 </div>
 </div>
@@ -336,6 +506,15 @@ function logLine(text, isErr) {
   d.textContent = text;
   log.appendChild(d);
   log.scrollTop = log.scrollHeight;
+}
+
+/* Fetch username from /state on first poll and populate the UI */
+let userName = '';
+function setUserName(name) {
+  if (userName) return;
+  userName = name;
+  document.getElementById('owner-tag').textContent = name + "'s office";
+  document.getElementById('status-right').textContent = name;
 }
 
 document.getElementById('doit').addEventListener('click', async () => {
@@ -372,6 +551,7 @@ async function poll() {
     const r = await fetch('state');
     const j = await r.json();
     document.getElementById('clocktext').textContent = j.clock || '--:--';
+    if (j.user) setUserName(j.user);
     if (Array.isArray(j.delivered) && j.delivered.length > seenDelivered) {
       const newest = j.delivered[j.delivered.length - 1];
       logLine('delivered by phone: ' + newest);

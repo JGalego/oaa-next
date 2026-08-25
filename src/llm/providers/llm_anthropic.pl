@@ -7,6 +7,7 @@
           [ ]).      % complete/3 is reached module-qualified; see llm_scripted
 
 :- use_module(library(http/http_open)).
+:- use_module(library(http/http_json)).
 :- use_module(library(http/json)).
 :- use_module('../llm_provider').
 :- use_module('../llm_config').
@@ -27,16 +28,14 @@ complete(Messages, Options, response(Text, Meta)) :-
     api_key(Key),
     llm_model(Model),
     request_body(Model, Messages, Options, Body),
-    atom_json_dict(BodyAtom, Body, [as(atom)]),
     endpoint(URL),
     api_version(Version),
     setup_call_cleanup(
         http_open(URL, Stream,
                   [ method(post),
-                    request_header('content-type'='application/json'),
                     request_header('x-api-key'=Key),
                     request_header('anthropic-version'=Version),
-                    post(atom('application/json', BodyAtom)),
+                                        post(json(Body)),
                     status_code(Status),
                     timeout(120)
                   ]),

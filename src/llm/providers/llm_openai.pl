@@ -7,6 +7,7 @@
           [ ]).      % complete/3 is reached module-qualified; see llm_scripted
 
 :- use_module(library(http/http_open)).
+:- use_module(library(http/http_json)).
 :- use_module(library(http/json)).
 :- use_module('../llm_provider').
 :- use_module('../llm_config').
@@ -31,11 +32,9 @@ complete(Messages, Options, response(Text, Meta)) :-
     atom_concat(Base, '/chat/completions', URL),
     llm_model(Model),
     request_body(Model, Messages, Options, Body),
-    atom_json_dict(BodyAtom, Body, [as(atom)]),
     auth_headers(Headers),
     append([ method(post),
-             request_header('content-type'='application/json'),
-             post(atom('application/json', BodyAtom)),
+                         post(json(Body)),
              status_code(Status),
              timeout(120) ],
            Headers, OpenOptions),

@@ -49,6 +49,12 @@ test(default_provider_reaches_no_network) :-
     llm_provider_name(P),
     P == scripted.
 
+test(empty_model_uses_provider_default) :-
+    setup_call_cleanup(
+        ( setenv('LLM_PROVIDER', openai), setenv('LLM_MODEL', '') ),
+        ( llm_model(Model), Model == 'gpt-4o-mini' ),
+        ( unsetenv('LLM_MODEL'), unsetenv('LLM_PROVIDER') )).
+
 :- end_tests(llm_provider).
 
 
@@ -64,6 +70,11 @@ test(tolerates_code_fences) :-
     icl_from_reply("```\nsquare(7, X)\n```", G), G =@= square(7, _).
 test(tolerates_surrounding_space) :-
     icl_from_reply("   square(7, X)  \n", G), G =@= square(7, _).
+test(tolerates_trailing_period) :-
+    icl_from_reply("square(7, X).", G), G =@= square(7, _).
+test(tolerates_compound_goal_with_trailing_period) :-
+    icl_from_reply("(square(7, X), greet(world, G)).", Goal),
+    Goal = (A, B), A =@= square(7, _), B =@= greet(world, _).
 
 %   A refusal is a refusal, not something to salvage.
 test(refusal_is_rejected, [fail]) :-

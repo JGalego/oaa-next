@@ -17,7 +17,7 @@ run :-
     await_capability(interpret("x", _), 60),
     ask("square the number 7"),
     ask("greet the world"),
-    ask("do both"),
+    ask("square the number 3 and greet the world"),
     ask("something impossible"),
     halt(0).
 

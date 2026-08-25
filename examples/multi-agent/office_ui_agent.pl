@@ -11,8 +11,8 @@
  *  Nothing about the Facilitator, ICL, or the other agents changes because
  *  one requester happens to be a browser instead of a terminal.
  *
- *  Serves the visual reconstruction of the demo's own interface --
- *  office_ui/index.html, a hand-drawn recreation of the screenshot cited
+ *  Serves the pixel-art reconstruction of the demo's own interface --
+ *  office_ui/index.html, a recreation of the original SRI screenshot cited
  *  in research/office-demo.md, not a copy of it -- and bridges its three
  *  actions to the same running community office_client.pl talks to:
  *
@@ -128,5 +128,12 @@ handle_state(_Request) :-
     ;   Delivered = [], Connected = false
     ),
     get_time(Now), format_time(atom(Clock), "%H:%M", Now),
+    current_user_name(User),
     reply_json_dict(_{connected: Connected, delivered: Delivered,
-                      clock: Clock}).
+                      clock: Clock, user: User}).
+
+current_user_name(User) :-
+    (   getenv('USER', U) -> User = U
+    ;   getenv('USERNAME', U) -> User = U   % Windows fallback
+    ;   User = "user"
+    ).

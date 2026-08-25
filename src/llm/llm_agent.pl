@@ -7,6 +7,8 @@
           [ llm_agent_main/0,
             llm_agent_solvables/1,      % -Solvables
             llm_interpret/3,            % +Request, +Params, -Result
+                        llm_interpret_session/4,    % +Session, +Request, +Params, -Result
+                        llm_reset_conversation/1,   % +Session
             community_capabilities/1,   % -Capabilities
             icl_from_reply/2            % +Text, -Goal
           ]).
@@ -16,6 +18,8 @@
 :- use_module('../agents/oaa_agent').
 :- use_module(llm_config).
 :- use_module(llm_provider).
+
+:- dynamic conversation_history/2.
 
 /** <module> An LLM-backed OAA agent
 
@@ -36,7 +40,16 @@ That is the invariant worth protecting: an LLM in this position makes the
 community more capable without becoming a route around it.
 */
 
-llm_agent_solvables([ solvable(interpret(_Ask, _Result),
+llm_agent_solvables([ solvable(interpret(_Session, _Ask, _Result),
+                                                             [ callback(llm_agent:interpret_session_request),
+                                                                 argspecs(in(_, true), in(string, true),
+                                                                                    out(_, true)) ],
+                                                             []),
+                                            solvable(reset_conversation(_Session),
+                                                             [ callback(llm_agent:reset_conversation_request),
+                                                                 argspecs(in(_, true)) ],
+                                                             []),
+                                            solvable(interpret(_Ask, _Result),
                                [ callback(llm_agent:interpret_request),
                                  argspecs(in(string, true), out(_, true)) ],
                                []),
@@ -59,20 +72,29 @@ llm_agent_main :-
 
 load_provider :-
     llm_provider_name(Name),
-    provider_file(Name, File),
+    provider_file(Name, Relative),
     (   llm_known_provider(Name, _)
     ->  true
-    ;   use_module(File)
+    ;   source_file(llm_agent:llm_agent_main, Source),
+        file_directory_name(Source, Dir),
+        directory_file_path(Dir, Relative, File),
+        use_module(File)
     ).
 
-provider_file(anthropic, 'providers/llm_anthropic').
-provider_file(openai,    'providers/llm_openai').
-provider_file(scripted,  'providers/llm_scripted').
+provider_file(anthropic, 'providers/llm_anthropic.pl').
+provider_file(openai,    'providers/llm_openai.pl').
+provider_file(scripted,  'providers/llm_scripted.pl').
 
 % ----------------------------------------------------------------- callbacks
 
 interpret_request(interpret(Request, Result), Params) :-
     llm_interpret(Request, Params, Result).
+
+interpret_session_request(interpret(Session, Request, Result), Params) :-
+    llm_interpret_session(Session, Request, Params, Result).
+
+reset_conversation_request(reset_conversation(Session), _Params) :-
+    llm_reset_conversation(Session).
 
 propose_request(propose_goal(Request, Goal), _Params) :-
     community_capabilities(Caps),
@@ -88,6 +110,56 @@ llm_interpret(Request, _Params, Result) :-
     ->  solve_proposed(Goal, Result)
     ;   Result = could_not_interpret(Request)
     ).
+
+%!  llm_interpret_session(+Session, +Request, +Params, -Result) is det.
+%
+%   Interpret Request with bounded dialogue history private to Session.  Calls
+%   in one session are serialized so concurrent clients cannot interleave its
+%   turns; unrelated sessions remain independent.
+
+llm_interpret_session(Session, Request, _Params, Result) :-
+    (   ground(Session)
+    ->  true
+    ;   throw(oaa_error(non_ground_conversation_session(Session)))
+    ),
+    session_mutex(Session, Mutex),
+    with_mutex(Mutex, interpret_session_locked(Session, Request, Result)).
+
+interpret_session_locked(Session, Request, Result) :-
+    community_capabilities(Caps),
+    session_history(Session, History),
+    proposal_outcome(Request, Caps, History, Outcome, Reply),
+    remember_turn(Session, History, Request, Reply),
+    (   Outcome = goal(Goal)
+    ->  solve_proposed(Goal, Result)
+    ;   Result = could_not_interpret(Request)
+    ).
+
+%!  llm_reset_conversation(+Session) is det.
+
+llm_reset_conversation(Session) :-
+    retractall(conversation_history(Session, _)).
+
+session_mutex(Session, Mutex) :-
+    term_hash(Session, Hash),
+    format(atom(Mutex), 'llm_conversation_~16r', [Hash]).
+
+session_history(Session, History) :-
+    ( conversation_history(Session, Stored) -> History = Stored ; History = [] ).
+
+remember_turn(Session, History, Request, Reply) :-
+    append(History,
+           [message(user, Request), message(assistant, Reply)],
+           Extended),
+    keep_last_messages(12, Extended, Bounded),
+    retractall(conversation_history(Session, _)),
+    assertz(conversation_history(Session, Bounded)).
+
+keep_last_messages(Max, Messages, Kept) :-
+    length(Messages, Count),
+    Drop is max(0, Count - Max),
+    length(Prefix, Drop),
+    append(Prefix, Kept, Messages).
 
 %   Solving the proposed goal is an ordinary request.  reflexive(false) keeps
 %   this agent from being offered its own goal back, which would loop.
@@ -108,13 +180,19 @@ solve_proposed(Goal, Result) :-
 %   the Facilitator cannot route is worse than an honest refusal.
 
 propose(Request, Caps, Goal) :-
+    proposal_outcome(Request, Caps, [], goal(Goal), _Reply).
+
+proposal_outcome(Request, Caps, History, Outcome, Reply) :-
     system_prompt(Caps, System),
     text_to_string(Request, RequestStr),
-    Messages = [ message(system, System),
-                 message(user, RequestStr) ],
+    append([message(system, System)|History],
+           [message(user, RequestStr)], Messages),
     llm_complete(Messages, [max_tokens(1024)], Response),
-    llm_response_text(Response, Text),
-    icl_from_reply(Text, Goal).
+    llm_response_text(Response, Reply),
+    (   icl_from_reply(Reply, Goal)
+    ->  Outcome = goal(Goal)
+    ;   Outcome = refusal
+    ).
 
 %   The capabilities are given to the model as the vocabulary it may use, in
 %   the same ICL notation the community speaks, so that what it writes is
@@ -140,9 +218,15 @@ These are the capabilities the community currently offers. Use only these:
 
 ~w
 
-Reply with the goal alone. No explanation, no code fences, no trailing \c
-period. If no combination of the capabilities above can serve the request, \c
-reply with exactly: cannot",
+Names such as _G1 and _G2 in those signatures are variable placeholders. \
+Preserve each capability's exact number of arguments: replace input \
+placeholders with values from the request and leave output placeholders as \
+fresh variables. For example, square(_G1,_G2) applied to 7 becomes \
+square(7, Result). To use two capabilities, return a parenthesised \
+conjunction such as (square(7, Result), greet(world, Greeting)).
+
+Reply with the goal alone. No explanation or code fences. If no combination \
+of the capabilities above can serve the request, reply with exactly: cannot",
            [CapText]),
     true.
 
@@ -155,11 +239,18 @@ reply with exactly: cannot",
 icl_from_reply(Text, Goal) :-
     text_to_string(Text, S0),
     strip_fences(S0, S1),
-    normalize_space(string(S), S1),
+    normalize_space(string(S2), S1),
+    strip_trailing_period(S2, S),
     S \== "",
     S \== "cannot",
     icl_parse_term(S, Goal),
     \+ atom(Goal).
+
+strip_trailing_period(In, Out) :-
+    (   string_concat(Core, ".", In)
+    ->  normalize_space(string(Out), Core)
+    ;   Out = In
+    ).
 
 strip_fences(In, Out) :-
     split_string(In, "\n", "", Lines0),

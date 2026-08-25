@@ -63,7 +63,12 @@ llm_provider_name(Name) :-
 llm_model(Model) :-
     llm_provider_name(Provider),
     default_model(Provider, Default),
-    llm_setting(llm_model, Model, Default).
+    (   llm_setting(llm_model, Configured),
+        Configured \== '',
+        Configured \== ""
+    ->  Model = Configured
+    ;   Model = Default
+    ).
 
 default_model(anthropic, 'claude-opus-5').
 default_model(openai, 'gpt-4o-mini').
