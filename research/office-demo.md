@@ -106,7 +106,8 @@ stays at the level the sources actually support.
 
 ## Reconstruction versus historical claim
 
-`examples/multi-agent/office/` (added alongside this note) is a NEW,
+`examples/multi-agent/office_mail_agent.pl`, `office_telephone_agent.pl` and
+`office_client.pl`, with `examples/llm/office_assistant.pl`, are a NEW,
 illustrative scenario — labelled as such, not RECONSTRUCTED — built to
 exercise the same *pattern* the evidence above establishes: a natural-
 language sentence, parsed by the LLM agent into an `oaa_AddTrigger` call, that
@@ -117,8 +118,30 @@ attested; it does not claim to reproduce the historical Notify agent's full
 location-aware delegation logic (calendar lookup, room phone lookup,
 TouchTone password confirmation), since that lives only in prose about a
 different example, not in a source detailed enough to reconstruct
-faithfully. Speech recognition, handwriting recognition, telephony and the
-graphical office UI itself are out of scope for the same reason they're out
-of scope for oaa-next generally: they were third-party or bespoke I/O
-components wrapped as agents, not part of OAA's own core, and building them
-is a distinct effort from reimplementing the architecture.
+faithfully. Speech recognition, handwriting recognition and real telephony
+remain out of scope for the reason they're out of scope for oaa-next
+generally: they were third-party or bespoke I/O components wrapped as
+agents, not part of OAA's own core, and building them is a distinct effort
+from reimplementing the architecture.
+
+## The visual reconstruction
+
+`examples/multi-agent/office_ui_agent.pl` and `office_ui/index.html` add a
+graphical front end — a hand-drawn recreation of the composition in the
+screenshot cited above (room, title bar, status line, command bar), not a
+copy of the screenshot itself, which stays uncommitted and rights-reserved
+per the citation above. Its own architectural framing matters more than its
+faithfulness as a drawing: it is one more ordinary OAA agent, standing in
+for one of the "User Interface Agent(s)" boxes in the recovered diagram,
+whose HTTP surface is this project's equivalent of the "laptop, web
+browser" access the demo page's own description names. It turns a page
+load or a button click into the same `oaa_Solve` / `oaa_AddTrigger` /
+`oaa_AddData` calls `office_client.pl` makes by script — nothing about the
+Facilitator, ICL, or the other agents changes because the requester happens
+to be a browser. A few choices depart deliberately from a pixel-faithful
+copy: no photograph or drawn likeness of Adam Cheyer (the "Adam Cheyer's
+office (1993)" tag names the demo's documented owner as citation, not
+portraiture); no reproduction of SRI's logo (the framed wall art is a
+generic abstract shape); and the wall clock shows live time rather than the
+screenshot's frozen 16:19, since this reconstruction is a running demo, not
+a static image.

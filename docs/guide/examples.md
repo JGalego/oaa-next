@@ -79,10 +79,39 @@ pattern and the exact command are attested by a primary-source screenshot
 and a corroborating 1997 paper, but the historical Notify agent's fuller
 delegation logic (location-aware, password-confirmed) is only described in
 prose about a different example and isn't rebuilt here. Speech recognition,
-handwriting recognition, real telephony and the graphical office UI are out
-of scope for the reason they always are for oaa-next: they were I/O
-components wrapped as agents, not part of the architecture itself.
-`tests/llm/test_office_demo.pl` keeps this example working.
+handwriting recognition and real telephony are out of scope for the reason
+they always are for oaa-next: they were I/O components wrapped as agents,
+not part of the architecture itself. `tests/llm/test_office_demo.pl` keeps
+this example working.
+
+### A visual front end
+
+`office_ui_agent.pl` and `office_ui/index.html` (both
+`examples/multi-agent/`) add a graphical front end: a hand-drawn
+reconstruction of the screenshot's own room composition, served over plain
+HTTP by one more ordinary agent standing in for a "User Interface Agent" —
+see the "visual reconstruction" section of
+[`../../research/office-demo.md`](../../research/office-demo.md) for what
+that does and doesn't claim about fidelity.
+
+Run it alongside the rest of the community:
+
+```sh
+swipl bin/facilitator.pl
+swipl examples/multi-agent/office_mail_agent.pl
+swipl examples/multi-agent/office_telephone_agent.pl
+swipl examples/llm/office_assistant.pl -- -oaa_mode OAA_LLM
+swipl examples/multi-agent/office_ui_agent.pl
+```
+
+then open the URL the last one prints. The command bar comes pre-filled
+with the screenshot's own sentence; "Do It!" installs the trigger through
+`propose_goal/2` exactly as `office_client.pl` does, and the two "simulate
+mail arriving" buttons send mail an ordinary `oaa_AddData` the same way —
+only the one about "security" is ever delivered, which the activity log and
+a "ring ring…" tag both show. `tests/llm/test_office_ui.pl` exercises the
+same three HTTP endpoints (`/command`, `/mail`, `/state`) a browser uses,
+so this stays working the same way the non-visual client does.
 
 ## Running the whole set
 

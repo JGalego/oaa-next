@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Open Agent Architecture</title>
+<style>
+  :root {
+    --wall: #c7d6dd;
+    --wall-dark: #b3c5ce;
+    --wood: #a6764a;
+    --wood-dark: #7a5230;
+    --rope: #c9a227;
+    --titlebar: #171a52;
+    --status-bg: #8fe3ff;
+    --status-fg: #0b2447;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #3a3a3a;
+    font-family: "Segoe UI", Tahoma, Verdana, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 8px;
+  }
+  #frame {
+    width: 900px;
+    max-width: 100%;
+    background: #ddd;
+    border: 2px solid #222;
+    box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  }
+  #titlebar {
+    background: var(--titlebar);
+    color: #fff;
+    text-align: center;
+    font-weight: bold;
+    font-size: 15px;
+    letter-spacing: .5px;
+    padding: 6px 0;
+    position: relative;
+  }
+  #corner-icons {
+    position: absolute;
+    left: 6px;
+    top: 4px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .corner-badge {
+    width: 26px; height: 26px;
+    background: #eee;
+    border: 1px solid #666;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #rope {
+    height: 9px;
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--rope) 0 4px,
+      #8a6a12 4px 8px
+    );
+    border-bottom: 1px solid #6b5210;
+  }
+  #room-wrap { position: relative; background: var(--wall); }
+  #room { display: block; width: 100%; height: auto; }
+  .tag {
+    position: absolute;
+    background: #fdf6c9;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 11px;
+    color: #222;
+    white-space: nowrap;
+    box-shadow: 1px 1px 3px rgba(0,0,0,.3);
+  }
+  .tag::after {
+    content: "";
+    position: absolute;
+    bottom: -6px; left: 14px;
+    border: 6px solid transparent;
+    border-top-color: #fdf6c9;
+  }
+  #owner-tag { left: 8%; top: 62%; }
+  #ring-tag {
+    left: 58%; top: 40%;
+    background: #ffe1a8;
+    display: none;
+  }
+  #ring-tag::after { border-top-color: #ffe1a8; }
+  #status {
+    background: var(--status-bg);
+    color: var(--status-fg);
+    font-weight: bold;
+    font-size: 13px;
+    padding: 5px 10px;
+  }
+  #cmdbar {
+    display: flex;
+    border-top: 1px solid #999;
+  }
+  #cmdtext {
+    flex: 1;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px 12px;
+    border: none;
+    border-right: 1px solid #999;
+  }
+  #doit {
+    width: 84px;
+    font-weight: bold;
+    font-size: 14px;
+    background: linear-gradient(#f4f4f4, #c9c9c9);
+    border: 1px solid #888;
+    border-left: none;
+    cursor: pointer;
+  }
+  #doit:active { background: linear-gradient(#c9c9c9, #f4f4f4); }
+  #quickmail {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #eee;
+    border-top: 1px solid #ccc;
+    flex-wrap: wrap;
+  }
+  #quickmail button {
+    font-size: 12px;
+    padding: 5px 9px;
+    border: 1px solid #888;
+    background: #fff;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  #quickmail button:hover { background: #f0f0f0; }
+  #log {
+    background: #111;
+    color: #8f8;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 12px;
+    padding: 8px 10px;
+    height: 130px;
+    overflow-y: auto;
+    border-top: 2px solid #000;
+  }
+  #log div { white-space: pre-wrap; margin-bottom: 2px; }
+  #log .err { color: #f88; }
+  #caption {
+    font-size: 11px;
+    color: #ccc;
+    text-align: center;
+    padding: 6px 10px 14px;
+    max-width: 900px;
+  }
+  #caption a { color: #9cf; }
+</style>
+</head>
+<body>
+<div>
+<div id="frame">
+  <div id="titlebar">
+    <div id="corner-icons">
+      <div class="corner-badge" title="office occupant">
+        <svg viewBox="0 0 24 24" width="16" height="16">
+          <circle cx="12" cy="8" r="5" fill="#333"/>
+          <path d="M2 22 C2 14 22 14 22 22 Z" fill="#333"/>
+        </svg>
+      </div>
+      <div class="corner-badge" title="oaa-next">
+        <svg viewBox="0 0 24 24" width="16" height="16">
+          <circle cx="6" cy="6" r="2.5" fill="#333"/>
+          <circle cx="18" cy="6" r="2.5" fill="#333"/>
+          <circle cx="6" cy="18" r="2.5" fill="#333"/>
+          <circle cx="18" cy="18" r="2.5" fill="#333"/>
+          <circle cx="12" cy="12" r="2.5" fill="#333"/>
+        </svg>
+      </div>
+    </div>
+    Open Agent Architecture
+  </div>
+  <div id="rope"></div>
+
+  <div id="room-wrap">
+    <svg id="room" viewBox="0 0 900 360" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="wallhatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+          <rect width="6" height="6" fill="#c7d6dd"/>
+          <line x1="0" y1="0" x2="0" y2="6" stroke="#b9c9d1" stroke-width="1"/>
+        </pattern>
+        <linearGradient id="rainbow" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#ff4d4d"/>
+          <stop offset="30%" stop-color="#ffd24d"/>
+          <stop offset="60%" stop-color="#4dff88"/>
+          <stop offset="100%" stop-color="#4d8bff"/>
+        </linearGradient>
+      </defs>
+
+      <!-- wall + floor -->
+      <rect x="0" y="0" width="900" height="330" fill="url(#wallhatch)"/>
+      <rect x="0" y="330" width="900" height="30" fill="#8a6a45"/>
+      <rect x="0" y="330" width="900" height="4" fill="#6b4e30"/>
+
+      <!-- plant -->
+      <g transform="translate(45,150)">
+        <path d="M20 140 L0 140 L6 60 L34 60 L40 140 Z" fill="#8a5a34"/>
+        <path d="M20 60 C-10 40 -6 -10 22 5 C20 -30 60 -30 55 8 C85 -8 88 40 55 55 C70 75 30 85 20 60 Z" fill="#3f8a4c"/>
+        <path d="M20 60 C0 45 5 5 20 10" stroke="#2e6b3a" stroke-width="3" fill="none"/>
+      </g>
+
+      <!-- floor lamp -->
+      <g transform="translate(115,70)">
+        <path d="M0 40 C-25 10 25 10 0 40 Z" fill="#f5f2e8" stroke="#ccc"/>
+        <rect x="-2" y="40" width="4" height="90" fill="#8a6a45"/>
+        <ellipse cx="0" cy="132" rx="22" ry="6" fill="#6b4e30"/>
+      </g>
+
+      <!-- framed abstract picture -->
+      <g transform="translate(175,55)">
+        <rect x="0" y="0" width="90" height="65" fill="#f2efe4" stroke="#5a4a30" stroke-width="4"/>
+        <path d="M10 50 C30 10 60 55 82 15" stroke="#3b6ea5" stroke-width="5" fill="none" stroke-linecap="round"/>
+      </g>
+
+      <!-- desk 1 with small lamp, tagged as the owner's desk -->
+      <g id="desk1" transform="translate(150,225)">
+        <rect x="0" y="30" width="110" height="14" fill="var(--wood)" stroke="var(--wood-dark)"/>
+        <rect x="6" y="44" width="8" height="55" fill="var(--wood-dark)"/>
+        <rect x="96" y="44" width="8" height="55" fill="var(--wood-dark)"/>
+        <path d="M40 30 L34 12 L54 12 L48 30 Z" fill="#b28ad1"/>
+        <rect x="42" y="2" width="4" height="10" fill="#8a6a45"/>
+      </g>
+
+      <!-- wall clock -->
+      <g id="clock" transform="translate(430,70)">
+        <circle r="34" fill="#fff8ea" stroke="url(#rainbow)" stroke-width="7"/>
+        <text id="clocktext" x="0" y="7" text-anchor="middle" font-size="18" font-weight="bold" fill="#b5321f" font-family="Consolas, monospace">--:--</text>
+      </g>
+
+      <!-- desk 2 with telephone, and a coat pole -->
+      <g id="desk2" transform="translate(430,225)">
+        <rect x="-10" y="30" width="120" height="14" fill="var(--wood)" stroke="var(--wood-dark)"/>
+        <rect x="-4" y="44" width="8" height="55" fill="var(--wood-dark)"/>
+        <rect x="94" y="44" width="8" height="55" fill="var(--wood-dark)"/>
+        <!-- phone base with rotary dial -->
+        <rect x="14" y="14" width="52" height="18" rx="3" fill="#e8dcc0" stroke="#a99873"/>
+        <circle cx="40" cy="23" r="9" fill="#f5f0e0" stroke="#a99873"/>
+        <circle cx="40" cy="23" r="2" fill="#a99873"/>
+        <!-- coiled cord to the receiver's cradle -->
+        <path d="M40 14 C34 4 46 2 40 -4" stroke="#333" stroke-width="1.5" fill="none"/>
+        <!-- handset, resting diagonally across the base -->
+        <g transform="translate(40,4) rotate(-18)">
+          <rect x="-24" y="-5" width="48" height="10" rx="5" fill="#1a1a1a"/>
+          <circle cx="-24" cy="0" r="8" fill="#1a1a1a"/>
+          <circle cx="24" cy="0" r="8" fill="#1a1a1a"/>
+        </g>
+      </g>
+      <g transform="translate(575,90)">
+        <rect x="-3" y="0" width="6" height="140" fill="#8a6a45"/>
+        <ellipse cx="0" cy="0" rx="14" ry="5" fill="#6b4e30"/>
+      </g>
+
+      <!-- mailbox + trash -->
+      <g id="mailbox" transform="translate(660,190)">
+        <rect x="0" y="0" width="70" height="55" fill="var(--wood)" stroke="var(--wood-dark)" stroke-width="2"/>
+        <rect x="8" y="10" width="54" height="16" fill="#f4e9c8" stroke="#a99873"/>
+        <text x="35" y="22" text-anchor="middle" font-size="11" font-weight="bold" fill="#b5321f" font-family="Arial">MAIL</text>
+        <rect x="30" y="55" width="10" height="35" fill="var(--wood-dark)"/>
+        <ellipse cx="35" cy="92" rx="20" ry="5" fill="#5a4530"/>
+      </g>
+      <g transform="translate(745,300)">
+        <path d="M0 30 L6 0 L26 0 L32 30 Z" fill="#c0392b"/>
+      </g>
+
+      <!-- door -->
+      <g id="door" transform="translate(735,60)">
+        <rect x="0" y="0" width="75" height="270" fill="#c9a876" stroke="#7a5230" stroke-width="3"/>
+        <rect x="8" y="15" width="59" height="110" fill="none" stroke="#a9895c" stroke-width="3"/>
+        <rect x="8" y="140" width="59" height="110" fill="none" stroke="#a9895c" stroke-width="3"/>
+        <circle cx="62" cy="140" r="5" fill="#d4af37" stroke="#8a6a1a"/>
+      </g>
+
+      <!-- bookshelf / filing cabinet -->
+      <g id="cabinet" transform="translate(900,60)">
+        <rect x="-90" y="0" width="90" height="270" fill="#c9a876" stroke="#7a5230" stroke-width="3"/>
+        <line x1="-90" y1="68" x2="0" y2="68" stroke="#7a5230" stroke-width="2"/>
+        <line x1="-90" y1="136" x2="0" y2="136" stroke="#7a5230" stroke-width="2"/>
+        <line x1="-90" y1="204" x2="0" y2="204" stroke="#7a5230" stroke-width="2"/>
+        <rect x="-40" y="42" width="10" height="24" fill="#b5321f"/>
+        <rect x="-55" y="46" width="9" height="20" fill="#2f5aa8"/>
+        <rect x="-30" y="112" width="9" height="22" fill="#3f8a4c"/>
+      </g>
+    </svg>
+
+    <div class="tag" id="owner-tag">Adam Cheyer's office (1993)</div>
+    <div class="tag" id="ring-tag">ring ring&hellip;</div>
+  </div>
+
+  <div id="status">Connected to server.&nbsp;&nbsp;Agents are now active.</div>
+
+  <div id="cmdbar">
+    <input id="cmdtext" type="text"
+      value='When mail arrives for me about &quot;security&quot; get it to me by telephone.'>
+    <button id="doit">Do It!</button>
+  </div>
+
+  <div id="quickmail">
+    <span style="align-self:center;font-size:12px;color:#333;">simulate mail arriving:</span>
+    <button data-topic="security" data-from="alice"
+      data-body="Please rotate the shared credentials by Friday.">about &quot;security&quot;</button>
+    <button data-topic="lunch" data-from="bob"
+      data-body="Want to grab lunch at noon?">about &quot;lunch&quot;</button>
+  </div>
+
+  <div id="log"></div>
+
+  <div id="caption">
+    A hand-drawn reconstruction of the interface shown in Adam Cheyer's own
+    "Office Demos" screenshot, cited with hashes in
+    <code>research/office-demo.md</code> -- not a copy of that (copyrighted)
+    image. The command below is quoted verbatim from it. This page is an
+    ordinary OAA "User Interface Agent" (<code>office_ui_agent.pl</code>)
+    talking to the same running community <code>office_client.pl</code>
+    does, over plain HTTP.
+  </div>
+</div>
+</div>
+
+<script>
+const log = document.getElementById('log');
+function logLine(text, isErr) {
+  const d = document.createElement('div');
+  if (isErr) d.className = 'err';
+  d.textContent = text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+document.getElementById('doit').addEventListener('click', async () => {
+  const text = document.getElementById('cmdtext').value;
+  logLine('> ' + text);
+  try {
+    const r = await fetch('command', {
+      method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({text})
+    });
+    const j = await r.json();
+    if (j.ok) logLine(j.result); else logLine('error: ' + j.error, true);
+  } catch (e) { logLine('request failed: ' + e, true); }
+});
+
+document.querySelectorAll('#quickmail button[data-topic]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const {topic, from, body} = btn.dataset;
+    logLine('> mail arrives: ' + from + ' about "' + topic + '"');
+    try {
+      const r = await fetch('mail', {
+        method: 'POST', headers: {'content-type': 'application/json'},
+        body: JSON.stringify({from, topic, body})
+      });
+      const j = await r.json();
+      if (!j.ok) logLine('error: ' + (j.error || 'unknown'), true);
+    } catch (e) { logLine('request failed: ' + e, true); }
+  });
+});
+
+let seenDelivered = 0;
+async function poll() {
+  try {
+    const r = await fetch('state');
+    const j = await r.json();
+    document.getElementById('clocktext').textContent = j.clock || '--:--';
+    if (Array.isArray(j.delivered) && j.delivered.length > seenDelivered) {
+      const newest = j.delivered[j.delivered.length - 1];
+      logLine('delivered by phone: ' + newest);
+      const tag = document.getElementById('ring-tag');
+      tag.style.display = 'block';
+      clearTimeout(poll._t);
+      poll._t = setTimeout(() => { tag.style.display = 'none'; }, 4000);
+      seenDelivered = j.delivered.length;
+    }
+  } catch (e) { /* agent not up yet; try again next tick */ }
+}
+poll();
+setInterval(poll, 1000);
+</script>
+</body>
+</html>

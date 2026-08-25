@@ -25,6 +25,7 @@ suite('tests/llm/test_llm_agent.pl').
 suite('tests/llm/test_llm_openai_wire.pl').
 suite('tests/llm/test_llm_community.pl').
 suite('tests/llm/test_office_demo.pl').
+suite('tests/llm/test_office_ui.pl').
 suite('tests/interop/test_interop.pl').
 suite('tests/interop/test_mcp_live.pl').
 suite('tests/compatibility/test_conformance.pl').
