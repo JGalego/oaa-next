@@ -983,7 +983,11 @@ update_data(ConnId, GoalId, Mode, Payload, Params) :-
            route_data_op(Id, GoalId, Mode, Payload, Params, ConnId)),
     (   icl_get_param_value(reply(none), Params)
     ->  true
-    ;   com_send(ConnId, ev_data_updated(GoalId, Requestees, Requestees))
+    ;   %  Six arguments, matching the shape SRI's own conformance tests
+        %  expect: ev_data_updated(GoalId, Mode, Clause, Requestees, Solvers,
+        %  Params).  See tests/compatibility/.
+        com_send(ConnId, ev_data_updated(GoalId, Mode, Payload,
+                                         Requestees, Requestees, Params))
     ).
 
 probe_of(replace, replace(C1, _), C1) :- !.

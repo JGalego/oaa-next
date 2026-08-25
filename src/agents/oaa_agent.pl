@@ -255,11 +255,12 @@ send_to_parent(Event) :-
 
 %   Trigger actions are run through the callback registry rather than by
 %   oaa_trigger calling this module directly, which would make the dependency
-%   circular.  These two are registered once, at load time.
+%   circular.  They are registered once, at load time.
 
 :- initialization(register_trigger_executors).
 
 register_trigger_executors :-
+    oaa_register_callback(on_receive, oaa_trigger:oaa_note_event(receive)),
     oaa_register_callback(trigger_solve, oaa_agent:trigger_solve_action),
     oaa_register_callback(trigger_interpret, oaa_agent:trigger_interpret_action),
     oaa_register_callback(trigger_route, oaa_agent:trigger_route_action).
@@ -569,7 +570,9 @@ data_op(Mode, _Probe, Payload, Params) :-
         icl_get_param_value(reply(Reply), Params, true),
         (   Reply == none
         ->  true
-        ;   ( oaa_wait_for(ev_data_updated(GoalId, Requestees, Satisfiers), 10, _)
+        ;   (   oaa_wait_for(ev_data_updated(GoalId, _M, _C,
+                                             Requestees, Satisfiers, _P),
+                             10, _)
             ->  bind_return_param(get_address(Requestees), Params),
                 bind_return_param(get_satisfiers(Satisfiers), Params)
             ;   true

@@ -347,12 +347,26 @@ wait_loop(Pattern, Floor, Deadline, Term) :-
     ).
 
 take_matching(Pattern, Term) :-
-    pending(P, S, _ConnId, Candidate),
+    pending(P, S, ConnId, Candidate),
     \+ \+ Candidate = Pattern,
     !,
-    retract(pending(P, S, _, Candidate)),
+    retract(pending(P, S, ConnId, Candidate)),
+    note_received(ConnId, Candidate),
     Term = Candidate,
     Term = Pattern.
+
+%!  note_received(+ConnId, +Term) is det.
+%
+%   An event taken by a nested wait never reaches the dispatcher, so whatever
+%   watches incoming traffic is told about it here.  Without this a comm
+%   trigger would see only the events nobody was waiting for, which is not
+%   what the Developer's Guide describes a comm trigger as watching.
+
+note_received(ConnId, Term) :-
+    (   oaa_callback(on_receive, Closure)
+    ->  ignore(call(Closure, ConnId, Term))
+    ;   true
+    ).
 
 remaining(infinite, infinite) :- !.
 remaining(Deadline, Remaining) :-
