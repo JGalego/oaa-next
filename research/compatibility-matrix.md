@@ -145,13 +145,13 @@ an equivalent seam rather than assume a single Prolog.
 
 | Concept | Historical implementation | Evidence | oaa-next | Status |
 |---|---|---|---|---|
-| Start-It | Execution manager: launches a community per platform conventions, ensures each agent connects, monitors agents, restarts failures | DG §3.4, FAQ §2.6 | Same role | planned |
-| Monitor | Graphically displays and records an agent community and its communications | FAQ §2.6 | Same role | planned |
-| Debug | Sends ICL or natural-language messages to the community or a single agent; shipped in both Java and C builds | FAQ §2.6 | Same role | planned |
-| Shell agent | Command-line access to the community | SRC, download page | Same | planned |
+| Start-It | Execution manager: launches a community per platform conventions, ensures each agent connects, monitors agents, restarts failures | DG §3.4, FAQ §2.6 | Same role, driven by a community description file | reconstructed |
+| Monitor | Graphically displays and records an agent community and its communications | FAQ §2.6 | Same role; terminal output rather than graphical, and it learns the community by querying `agent_data/6` and watching traffic through a comm trigger on the facilitator | modernized |
+| Debug | Sends ICL or natural-language messages to the community or a single agent; shipped in both Java and C builds | FAQ §2.6 | Terminal REPL; natural language is left to a community that has an NL agent, as it was historically | modernized |
+| Shell agent | Command-line access to the community | SRC, download page | Same | reconstructed |
 | Configuration | Command line → environment variables → setup file, searched in that order; setup file is Prolog-syntax `setup.pl`; `default_facilitator(tcp(Host,Port))` preferred over `oaa_connect` in shared setup files | DG §4.6 | Same precedence and same file syntax | reconstructed |
 | Port exception handling | `-on_port_exception` with `exit`, `try_again`, `next_highest`, `change_port`, `any_available` | DG §4.6.2 | Same | reconstructed |
-| ADT | Agent Development Toolkit — Martin, Cheyer & Lee, PAAM'96 | paper not yet retrieved | Phase 2 | open |
+| ADT | Agent Development Toolkit — Martin, Cheyer & Lee, PAAM'96 | paper not yet retrieved | Generator, shell, debug REPL, Start-It and Monitor, built from the Developer's Guide and FAQ descriptions; the PAAM'96 paper would still be worth having | partial |
 
 ## Scaling
 

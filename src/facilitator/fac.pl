@@ -295,6 +295,12 @@ next_local_id(Id) :-
 %   The Facilitator's external event protocol, as recorded in
 %   research/implementation-notes/facilitator.md section 3.
 
+handle(ConnId, Event) :-
+    %  Offer every arriving event to the comm triggers before handling it.
+    %  A monitoring agent installs one of those on the facilitator to watch
+    %  the community's traffic.  Developer's Guide 4.3.5.
+    oaa_note_event(receive, ConnId, Event),
+    fail.
 handle(ConnId, ev_register_solvables(Name, Solvables, Params)) :- !,
     register_agent(ConnId, Name, Solvables, Params).
 handle(ConnId, ev_solve(GoalId, Goal, Params)) :- !,
@@ -717,8 +723,15 @@ send_request(FacGoalId, Goal, Params, candidate(Id, Solvable, _U)) :-
         ->  true
         ;   Event = Goal
         ),
-        com_send(ConnId, ev_solve(FacGoalId, Event, Params))
+        fac_send(ConnId, ev_solve(FacGoalId, Event, Params))
     ).
+
+%   Outgoing events are offered to the comm triggers as well, so a monitor
+%   sees both halves of every exchange.
+
+fac_send(ConnId, Event) :-
+    oaa_note_event(send, ConnId, Event),
+    com_send(ConnId, Event).
 
 %   The facilitator answering its own solvables goes through the same
 %   local-solving path a client agent uses.
@@ -827,7 +840,7 @@ finish_solve(ConnId, GoalId, Goal, Params, Requestees, Solvers, Solutions0) :-
     (   icl_get_param_value(reply(none), Params)
     ->  true
     ;   reply_goal(Goal, Params, ReplyGoal),
-        com_send(ConnId,
+        fac_send(ConnId,
                  ev_solved(GoalId, Requestees, Solvers, ReplyGoal,
                            Params, Solutions))
     ).

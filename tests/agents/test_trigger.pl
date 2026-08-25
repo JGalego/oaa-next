@@ -243,3 +243,40 @@ test(one_shot_has_no_next, [fail]) :-
                                  recurrence(0,0)), Now, _).
 
 :- end_tests(icl_time).
+
+
+:- begin_tests(trigger_bindings, [setup(reset), cleanup(oaa_trigger_clear)]).
+
+%  Developer's Guide 8.3: variables bound by a trigger's condition are
+%  available in its action.  A replace condition names both the old and the
+%  new value precisely so the action can use them.
+test(data_condition_binds_action, [setup(reset)]) :-
+    oaa_add_trigger(data, alert(Level), oaa_Solve(raised(Level), []),
+                    [on(add), recurrence(whenever), address(self)]),
+    oaa_note_data_change(add, alert(critical)),
+    fired(raised(critical)).
+
+test(comm_condition_binds_action, [setup(reset)]) :-
+    oaa_add_trigger(comm, event(From, Content, _P),
+                    oaa_Solve(saw(From, Content), []),
+                    [on(receive), recurrence(whenever)]),
+    oaa_note_event(receive, parent, ping(7)),
+    fired(saw(parent, ping(7))).
+
+test(task_condition_binds_action, [setup(reset)]) :-
+    oaa_add_trigger(task, arrives(mail, Subject),
+                    oaa_Solve(notify(Subject), []),
+                    [recurrence(whenever), address(self)]),
+    oaa_check_triggers(task, arrives(mail, security), []),
+    fired(notify(security)).
+
+%  A recurring trigger must not carry bindings from one firing to the next.
+test(bindings_do_not_persist, [setup(reset)]) :-
+    oaa_add_trigger(data, alert(Level), oaa_Solve(raised(Level), []),
+                    [on(add), recurrence(whenever), address(self)]),
+    oaa_note_data_change(add, alert(first)),
+    oaa_note_data_change(add, alert(second)),
+    fired(raised(first)),
+    fired(raised(second)).
+
+:- end_tests(trigger_bindings).

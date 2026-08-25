@@ -172,9 +172,14 @@ operation_key(Op, Op).
 
 consider_data(Key, Operation, Clause, Cond, Action, Params, Id) :-
     (   on_matches(Params, Key, [add, remove, replace]),
-        data_condition_matches(Cond, Operation, Clause, Bound),
+        %  Condition and action are copied together so that variables the
+        %  condition binds are visible in the action.  The Developer's Guide
+        %  relies on this: a replace condition naming OldLocation and
+        %  NewLocation exists so the action can use them.
+        copy_term(Cond-Action, Cond1-Action1),
+        data_condition_matches(Cond1, Operation, Clause, Bound),
         test_succeeds(Params)
-    ->  fire(Bound, Action, Params, Id)
+    ->  fire(Bound, Action1, Params, Id)
     ;   true
     ).
 
@@ -184,16 +189,14 @@ consider_data(Key, Operation, Clause, Cond, Action, Params, Id) :-
 data_condition_matches(Cond, replace(Old, New), _Clause, Bound) :- !,
     (   var(Cond)
     ->  Bound = replace(Old, New)
-    ;   Cond = replace(_, _),
-        copy_term(Cond, replace(OldPat, NewPat)),
+    ;   Cond = replace(OldPat, NewPat),
         OldPat = Old, NewPat = New,
         Bound = replace(Old, New)
     ).
 data_condition_matches(Cond, _Operation, Clause, Bound) :-
     (   var(Cond)
     ->  Bound = Clause
-    ;   copy_term(Cond, Pat),
-        Pat = Clause,
+    ;   Cond = Clause,
         Bound = Clause
     ).
 
@@ -215,16 +218,17 @@ oaa_note_event(Direction, From, Event) :-
 
 consider_comm(Direction, From, Event, Cond, Action, Params, Id) :-
     (   on_matches(Params, Direction, [send, receive]),
-        comm_condition_matches(Cond, From, Event, Bound),
+        copy_term(Cond-Action, Cond1-Action1),
+        comm_condition_matches(Cond1, From, Event, Bound),
         test_succeeds(Params)
-    ->  fire(Bound, Action, Params, Id)
+    ->  fire(Bound, Action1, Params, Id)
     ;   true
     ).
 
 comm_condition_matches(Cond, From, Event, Bound) :-
     (   var(Cond)
     ->  Bound = event(From, Event, [])
-    ;   copy_term(Cond, event(F, Content, P)),
+    ;   Cond = event(F, Content, P),
         F = From, Content = Event, ( var(P) -> P = [] ; true ),
         Bound = event(From, Event, P)
     ).
@@ -244,10 +248,10 @@ oaa_check_triggers(Type, Condition, _Params) :-
            consider_task(Condition, Cond, Action, TParams, Id)).
 
 consider_task(Condition, Cond, Action, Params, Id) :-
-    (   copy_term(Cond, Pat),
+    (   copy_term(Cond-Action, Pat-Action1),
         Pat = Condition,
         test_succeeds(Params)
-    ->  fire(Condition, Action, Params, Id)
+    ->  fire(Condition, Action1, Params, Id)
     ;   true
     ).
 

@@ -19,6 +19,7 @@ suite('tests/integration/test_meta.pl').
 suite('tests/integration/test_timing.pl').
 suite('tests/integration/test_hierarchy.pl').
 suite('tests/integration/test_direct.pl').
+suite('tests/integration/test_adt.pl').
 
 main(_Argv) :-
     forall(suite(F), ensure_loaded(F)),
