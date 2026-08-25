@@ -162,3 +162,70 @@ test(meta_agents_ordered_by_utility) :-
     Id == 2.
 
 :- end_tests(fac_meta).
+
+
+:- use_module('../../src/facilitator/fac_compound').
+:- use_module('../../src/icl/icl_term').
+
+:- begin_tests(fac_compound).
+
+test(recognises_conjunction) :-
+    icl_parse_term("(a, b)", G), is_compound_goal(G).
+test(recognises_disjunction) :-
+    icl_parse_term("(a ; b)", G), is_compound_goal(G).
+test(atomic_is_not_compound, [fail]) :-
+    icl_parse_term("send(mail, x)", G), is_compound_goal(G).
+test(recognises_through_wrappers) :-
+    icl_parse_term("agent : (a, b) :: [priority(9)]", G), is_compound_goal(G).
+
+test(flattens_conjunction) :-
+    icl_parse_term("(a, b, c)", G), goal_conjuncts(G, Cs), Cs == [a, b, c].
+test(disjunction_stays_whole) :-
+    icl_parse_term("(a ; b)", G), goal_conjuncts(G, Cs), Cs == [(a ; b)].
+
+%   Shared variables join conjuncts: solving the first fixes the second.
+test(solutions_propagate_bindings) :-
+    icl_parse_term("(p(X), q(X))", G),
+    initial_branch(G, B),
+    branch_step(B, dispatch(Head, _, _)),
+    Head =@= p(_),
+    branch_advance(B, [p(1), p(2)], [B1, B2]),
+    B1 = branch(_, [Next1|_]), Next1 == q(1),
+    B2 = branch(_, [Next2|_]), Next2 == q(2).
+
+%   Branches are independent: binding one cannot reach its sibling.
+test(branches_do_not_share_bindings) :-
+    icl_parse_term("(p(X), q(X))", G),
+    initial_branch(G, B),
+    branch_advance(B, [p(1), p(2)], [branch(T1, _), branch(T2, _)]),
+    T1 == (p(1), q(1)),
+    T2 == (p(2), q(2)).
+
+%   No solutions kills the branch, which is how a failing conjunct prunes
+%   everything that would have followed it.
+test(no_solutions_prunes_branch) :-
+    icl_parse_term("(p(X), q(X))", G),
+    initial_branch(G, B),
+    branch_advance(B, [], Branches),
+    Branches == [].
+
+test(disjunction_expands_to_two_branches) :-
+    icl_parse_term("(a ; b)", G),
+    initial_branch(G, B),
+    branch_step(B, expand([branch(_, [L|_]), branch(_, [R|_])])),
+    L == a, R == b.
+
+test(exhausted_branch_is_a_solution) :-
+    branch_step(branch(done(1), []), solution(done(1))).
+
+%   A subgoal may carry its own address and parameters, the nested parameter
+%   lists the Developer's Guide allows inside a compound goal.
+test(subgoal_carries_address_and_params) :-
+    icl_parse_term("(agent7 : p(X) :: [priority(9)], q(X))", G),
+    initial_branch(G, B),
+    branch_step(B, dispatch(Sub, Params, Address)),
+    Sub =@= p(_),
+    Address == agent7,
+    Params == [priority(9)].
+
+:- end_tests(fac_compound).

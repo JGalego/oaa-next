@@ -127,6 +127,27 @@ test(unsolvable_goal_fails) :-
 %   A data solvable declared on the facilitator with address(parent) is a
 %   blackboard: one agent writes it, another reads it, and neither knows the
 %   other exists.  Developer's Guide 5.2 and 7.7.
+%   A compound goal is one request the Facilitator takes apart and delegates
+%   piece by piece.  Variables shared between conjuncts join them, so a
+%   conjunct that depends on an earlier one is dispatched only after that one
+%   has returned.  Developer's Guide 4.3.
+test(compound_goal_chains_through_two_delegations) :-
+    run_program('/examples/multi-agent/compound_client.pl', Lines),
+    memberchk("chained: 3 -> 9 -> 81", Lines).
+
+test(compound_goal_spans_agents) :-
+    run_program('/examples/multi-agent/compound_client.pl', Lines),
+    memberchk("cross-agent pairs: 3", Lines).
+
+test(disjunction_takes_both_branches) :-
+    run_program('/examples/multi-agent/compound_client.pl', Lines),
+    memberchk("disjunction: [25,36]", Lines).
+
+%   An unsolvable conjunct prunes everything after it, rather than hanging.
+test(failing_conjunct_prunes) :-
+    run_program('/examples/multi-agent/compound_client.pl', Lines),
+    memberchk("failing conjunct pruned the request", Lines).
+
 test(blackboard_is_shared) :-
     run_program('/examples/multi-agent/reporter.pl', Lines),
     memberchk("observations: 2", Lines),

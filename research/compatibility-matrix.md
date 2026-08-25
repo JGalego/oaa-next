@@ -25,7 +25,6 @@ dropped:
 
 | Deferred | Why |
 |---|---|
-| Compound goals | `compound.pl` is 43 KB of the historical Facilitator. Atomic delegation had to be right first |
 | Multi-facilitator hierarchies, `propagate` | Depends on compound-goal routing and on referred-goal continuations |
 | `direct_connect` | An optimisation, and explicitly limited even historically |
 | Meta-agent consultation | The hook is located; wiring it means the Facilitator making a request of a client and awaiting the reply without deadlocking against it |
@@ -168,6 +167,9 @@ an equivalent seam rather than assume a single Prolog.
 | Referred goals | Carry the originating facilitator's address as continuation information; the responding agent's identity returns to the originator | DG §10.2 | Same | deferred |
 | Direct connect | `direct_connect(true)` bypasses the facilitator for message flow while the facilitator still selects the provider; requires a provider listener socket registered before `oaa_Register`; single-provider, single-facilitator, `oaa_Solve` only; `time_limit` and `parallel_ok` ignored | DG §10.1 | Same, incl. limitations | deferred |
 | Meta-agents | Agents declaring `meta(Type, +Goal, +Params, +FacInfo, -Result)` with `Type` in `lookup`, `prioritize`, `plan_query`, `execute_plan`; consulted in utility order until one returns usable information, else the facilitator's own default | DG §5.6 | Same — see note below | deferred |
+| Compound goals | Facilitator decomposes a compound request and delegates the subrequests individually | DG §4.3 | Breadth-first branch walk, driven one dispatch at a time so the Facilitator never blocks on an agent | reconstructed |
+| Conjunction join | Variables shared between conjuncts bind the later ones from the earlier ones' solutions | SRC, logic-programming semantics | Same; branches copy so siblings stay independent | reconstructed |
+| Nested parameter lists | A subgoal may carry its own address and parameters inside a compound goal | DG §6.15, Reference Manual | `Address:Goal::Params` disassembly per `oaa_DisassembleGoal` | reconstructed |
 
 Meta-agents are where an LLM belongs. The `prioritize` hook reorders the
 facilitator's candidate solver list; `lookup` finds and starts an agent when

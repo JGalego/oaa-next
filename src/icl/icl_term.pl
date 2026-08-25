@@ -20,7 +20,10 @@
             icl_match/3,                % +Goal, +Template, -Bound
             icl_functor/3,              % +Term, -Name, -Arity
             icl_is_var/1,
-            icl_is_ground/1
+            icl_is_ground/1,
+
+            icl_disassemble_goal/4,     % +Full, ?Address, ?Goal, ?Params
+            icl_assemble_goal/4         % ?Address, ?Goal, ?Params, -Full
           ]).
 
 :- use_module(icl_parse).
@@ -101,3 +104,42 @@ icl_functor(T, Name, Arity) :-
 icl_is_var(T) :- var(T).
 
 icl_is_ground(T) :- ground(T).
+
+%!  icl_disassemble_goal(+Full, ?Address, ?Goal, ?Params) is det.
+%
+%   Split an ICL goal into its three parts.  The OAA Agent Library Reference
+%   Manual gives the top-level structure of a goal as
+%
+%       Address:Goal::Params
+%
+%   with address and parameters both optional, so that every goal implicitly
+%   carries all three components.  A missing parameter list reads as `[]` and
+%   a missing address as `unknown`, again following the Reference Manual.
+%
+%   `:` and `::` share a priority and associate to the left, so the written
+%   form parses as `::(:(Address, Goal), Params)`.
+
+icl_disassemble_goal(Full, Address, Goal, Params) :-
+    (   nonvar(Full), Full = ::(Left, P)
+    ->  Params = P, Rest = Left
+    ;   Params = [], Rest = Full
+    ),
+    (   nonvar(Rest), Rest = :(A, G)
+    ->  Address = A, Goal = G
+    ;   Address = unknown, Goal = Rest
+    ).
+
+%!  icl_assemble_goal(?Address, ?Goal, ?Params, -Full) is det.
+%
+%   The inverse.  An address of `unknown` and an empty parameter list are
+%   both left out, so a goal that carries neither round-trips unchanged.
+
+icl_assemble_goal(Address, Goal, Params, Full) :-
+    (   Address == unknown
+    ->  Base = Goal
+    ;   Base = :(Address, Goal)
+    ),
+    (   Params == []
+    ->  Full = Base
+    ;   Full = ::(Base, Params)
+    ).

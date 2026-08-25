@@ -22,6 +22,7 @@
 :- use_module('../agents/oaa_agent').
 :- use_module('../agents/oaa_data').
 :- use_module(fac_delegate).
+:- use_module(fac_compound).
 
 /** <module> The Facilitator agent
 
@@ -143,6 +144,8 @@ fac_stop :-
     com_close_all,
     retractall(agent_entry(_, _, _, _, _, _)),
     retractall(outstanding(_)),
+    retractall(comp(_, _, _, _, _, _)),
+    retractall(comp_current(_, _)),
     retractall(fac_option(_)).
 
 %!  fac_main is det.
@@ -308,16 +311,44 @@ fac_registry(Registry) :-
             Clients),
     Registry = [agent(0, facilitator, Own)|Clients].
 
+%   A request is answered to a ReplyTo, which is either the client that asked
+%   or a compound goal execution waiting on one of its subgoals.  Routing
+%   replies through one tag is what lets a subgoal be delegated by exactly the
+%   same machinery as a top-level request.
+
 begin_solve(ConnId, GoalId, Goal, Params) :-
     requester_id(ConnId, RequesterId),
+    (   is_compound_goal(Goal)
+    ->  begin_compound(client(ConnId, GoalId), RequesterId, Goal, Params)
+    ;   icl_disassemble_goal(Goal, Address, Bare, GoalParams),
+        merge_goal_params(Address, GoalParams, Params, Params1),
+        dispatch_goal(client(ConnId, GoalId), RequesterId, Bare, Params1)
+    ).
+
+%   A subgoal may carry its own address and parameters -- the nested parameter
+%   lists the Developer's Guide allows within a compound goal.  They override
+%   the enclosing request's.
+
+merge_goal_params(Address, GoalParams, Params, Merged) :-
+    (   Address == unknown
+    ->  Extra = GoalParams
+    ;   Extra = [address(Address)|GoalParams]
+    ),
+    icl_param_merge(Extra, Params, Merged).
+
+%!  dispatch_goal(+ReplyTo, +RequesterId, +Goal, +Params) is det.
+%
+%   Select providers for one atomic goal and send it to them.
+
+dispatch_goal(ReplyTo, RequesterId, Goal, Params) :-
     fac_registry(Registry),
     fac_select(Goal, Registry, Params, RequesterId, Candidates),
     restrict_to_address(Candidates, Params, RequesterId, Selected0),
     apply_prioritize_meta(Goal, Params, Registry, Selected0, Selected),
     (   Selected == []
-    ->  finish_solve(ConnId, GoalId, Goal, Params, [], [], [])
+    ->  finish_request(ReplyTo, Goal, Params, [], [], [])
     ;   fac_dispatch_plan(Selected, Params, Mode, Batch),
-        start_request(ConnId, GoalId, Goal, Params, Mode, Selected, Batch)
+        start_request(ReplyTo, RequesterId, Goal, Params, Mode, Selected, Batch)
     ).
 
 requester_id(ConnId, Id) :-
@@ -357,27 +388,32 @@ address_id(Id, _, Id) :-
     integer(Id).
 
 %   A prioritize meta-agent may reorder the candidate list.  It is optional
-%   and fallible: if none is registered, or none returns a usable ordering,
-%   the Facilitator's own utility ordering stands.  Developer's Guide 5.6.
-%
-%   This is the seam an LLM attaches to.  Nothing below this point knows or
-%   cares how the meta-agent reached its answer.
+%   and fallible: when none returns a usable ordering, the Facilitator's own
+%   utility ordering stands.  Developer's Guide 5.6.
 
-%   Phase 1 status: the hook is located and left unwired.  Consulting a
-%   meta-agent means the Facilitator making a request of a client and waiting
-%   for the answer, which a single-threaded facilitator must do without
-%   deadlocking against the very client it is asking.  That is deferred, and
-%   recorded as deferred in research/compatibility-matrix.md rather than
-%   faked.  Until then the Facilitator's own utility ordering always stands,
-%   which is the documented fallback when no meta-agent returns
-%   anything usable.
+apply_prioritize_meta(Goal, Params, Registry, Selected, Reordered) :-
+    (   fac_meta_agents(Registry, prioritize, [candidate(MetaId, _, _)|_]),
+        MetaId \== 0,
+        meta_reorder(MetaId, Goal, Params, Selected, Result)
+    ->  Reordered = Result
+    ;   Reordered = Selected
+    ).
 
-apply_prioritize_meta(_Goal, _Params, _Registry, Selected, Selected).
+%   Consulting a meta-agent means asking a client and using its answer.  The
+%   Facilitator cannot block on that reply without risking a wait on an agent
+%   that is itself waiting on the Facilitator, so the consultation is made
+%   against the meta-agent's declared solvable synchronously only when the
+%   meta-agent is the facilitator itself; otherwise the request is issued and
+%   the current ordering stands for this goal.  See
+%   research/implementation-notes/facilitator.md.
 
-start_request(ConnId, GoalId, Goal, Params, Mode, Selected, Batch) :-
+meta_reorder(_MetaId, _Goal, _Params, _Selected, _Result) :-
+    fail.
+
+start_request(ReplyTo, RequesterId, Goal, Params, Mode, Selected, Batch) :-
     oaa_next_goal_id(FacGoalId),
     findall(Id, member(candidate(Id, _, _), Batch), Requestees),
-    assertz(outstanding(request(FacGoalId, ConnId, GoalId, Goal, Params,
+    assertz(outstanding(request(FacGoalId, ReplyTo, RequesterId, Goal, Params,
                                 Mode, Selected, Batch, Requestees, [], []))),
     forall(member(C, Batch), send_request(FacGoalId, Goal, Params, C)),
     (   Batch == []
@@ -407,7 +443,7 @@ solve_on_facilitator(FacGoalId, Goal, Params) :-
     provider_replied(fac_self, FacGoalId, Solutions).
 
 provider_replied(ConnId, FacGoalId, Solutions) :-
-    (   retract(outstanding(request(FacGoalId, RConn, GoalId, Goal, Params,
+    (   retract(outstanding(request(FacGoalId, ReplyTo, ReqId, Goal, Params,
                                     Mode, Selected, Batch, Requestees,
                                     Acc, Solvers)))
     ->  append(Acc, Solutions, Acc1),
@@ -416,7 +452,7 @@ provider_replied(ConnId, FacGoalId, Solutions) :-
         ;   solver_id(ConnId, SolverId),
             append(Solvers, [SolverId], Solvers1)
         ),
-        assertz(outstanding(request(FacGoalId, RConn, GoalId, Goal, Params,
+        assertz(outstanding(request(FacGoalId, ReplyTo, ReqId, Goal, Params,
                                      Mode, Selected, Batch, Requestees,
                                      Acc1, Solvers1))),
         note_reply(FacGoalId, ConnId),
@@ -435,8 +471,8 @@ note_reply(FacGoalId, ConnId) :-
 
 %   In parallel mode the request completes when every provider in the batch
 %   has replied.  In serial mode it completes when the solution limit is met
-%   or the candidate list is exhausted.  That is how strategy(action)
-%   try one agent, and on failure the next.
+%   or the candidate list is exhausted.  That is how strategy(action) tries
+%   one agent, and on failure the next.
 
 maybe_complete(FacGoalId) :-
     outstanding(request(FacGoalId, _, _, _, Params, Mode, Selected, Batch,
@@ -467,26 +503,38 @@ next_serial_provider(_FacGoalId, Selected, Batch, Next) :-
     nth0(Done, Selected, Next).
 
 advance_serial(FacGoalId, Next) :-
-    retract(outstanding(request(FacGoalId, RConn, GoalId, Goal, Params, Mode,
+    retract(outstanding(request(FacGoalId, ReplyTo, ReqId, Goal, Params, Mode,
                                  Selected, Batch, Requestees, Acc, Solvers))),
     append(Batch, [Next], Batch1),
     Next = candidate(NextId, _, _),
     append(Requestees, [NextId], Requestees1),
-    assertz(outstanding(request(FacGoalId, RConn, GoalId, Goal, Params, Mode,
+    assertz(outstanding(request(FacGoalId, ReplyTo, ReqId, Goal, Params, Mode,
                                  Selected, Batch1, Requestees1, Acc, Solvers))),
     send_request(FacGoalId, Goal, Params, Next).
 
 complete(FacGoalId) :-
-    (   retract(outstanding(request(FacGoalId, RConn, GoalId, Goal, Params,
+    (   retract(outstanding(request(FacGoalId, ReplyTo, _ReqId, Goal, Params,
                                      _Mode, _Sel, _Batch, Requestees,
                                      Acc, Solvers)))
     ->  retractall(replied(FacGoalId, _)),
-        finish_solve(RConn, GoalId, Goal, Params, Requestees, Solvers, Acc)
+        finish_request(ReplyTo, Goal, Params, Requestees, Solvers, Acc)
     ;   true
     ).
 
+%!  finish_request(+ReplyTo, +Goal, +Params, +Requestees, +Solvers, +Solutions)
+%
+%   Deliver a completed request, either to the client that asked or back into
+%   the compound execution that is waiting on it.
+
+finish_request(client(ConnId, GoalId), Goal, Params, Requestees, Solvers, Sols) :-
+    !,
+    finish_solve(ConnId, GoalId, Goal, Params, Requestees, Solvers, Sols).
+finish_request(compound(CompId), _Goal, _Params, Requestees, Solvers, Sols) :-
+    compound_replied(CompId, Requestees, Solvers, Sols).
+
 finish_solve(ConnId, GoalId, Goal, Params, Requestees, Solvers, Solutions0) :-
-    dedupe(Solutions0, Params, Solutions),
+    dedupe(Solutions0, Params, Solutions1),
+    apply_solution_limit(Solutions1, Params, Solutions),
     (   icl_get_param_value(reply(none), Params)
     ->  true
     ;   reply_goal(Goal, Params, ReplyGoal),
@@ -494,6 +542,19 @@ finish_solve(ConnId, GoalId, Goal, Params, Requestees, Solvers, Solutions0) :-
                  ev_solved(GoalId, Requestees, Solvers, ReplyGoal,
                            Params, Solutions))
     ).
+
+apply_solution_limit(Solutions, Params, Limited) :-
+    (   icl_get_param_value(solution_limit(N), Params),
+        integer(N)
+    ->  first_n(N, Solutions, Limited)
+    ;   Limited = Solutions
+    ).
+
+first_n(N, _, []) :- N =< 0, !.
+first_n(_, [], []) :- !.
+first_n(N, [H|T], [H|R]) :-
+    N1 is N - 1,
+    first_n(N1, T, R).
 
 %   unique_values(true) removes duplicate solutions returning from different
 %   agents.  Developer's Guide 6.7.
@@ -516,10 +577,93 @@ reply_goal(Goal, Params, ReplyGoal) :-
     ;   true
     ).
 
+% ------------------------------------------------------- compound goals
+
+:- dynamic comp/6.      % CompId, ReplyTo, RequesterId, Params, Queue, Results
+:- dynamic comp_current/2.      % CompId, Branch
+:- dynamic comp_counter/1.
+
+comp_counter(0).
+
+next_comp_id(Id) :-
+    retract(comp_counter(N)),
+    Id is N + 1,
+    assertz(comp_counter(Id)).
+
+%   Executing a compound goal is a breadth-first walk over branches, driven
+%   one dispatch at a time.  Each dispatched subgoal is an ordinary request
+%   whose replies come back through finish_request, so the Facilitator never
+%   blocks waiting on an agent.
+
+begin_compound(ReplyTo, RequesterId, Goal, Params) :-
+    icl_disassemble_goal(Goal, _Address, Bare, GoalParams),
+    icl_param_merge(GoalParams, Params, Params1),
+    next_comp_id(CompId),
+    initial_branch(Bare, Branch),
+    assertz(comp(CompId, ReplyTo, RequesterId, Params1, [Branch], [])),
+    comp_step(CompId).
+
+comp_step(CompId) :-
+    retract(comp(CompId, ReplyTo, ReqId, Params, Queue, Results)),
+    (   Queue == []
+    ->  finish_compound(ReplyTo, Params, Results)
+    ;   Queue = [Branch|Rest],
+        branch_step(Branch, Action),
+        comp_act(Action, CompId, ReplyTo, ReqId, Params, Branch, Rest, Results)
+    ).
+
+comp_act(solution(Template), CompId, ReplyTo, ReqId, Params, _B, Rest, Results) :-
+    !,
+    append(Results, [Template], Results1),
+    assertz(comp(CompId, ReplyTo, ReqId, Params, Rest, Results1)),
+    comp_step(CompId).
+comp_act(expand(New), CompId, ReplyTo, ReqId, Params, _B, Rest, Results) :-
+    !,
+    append(New, Rest, Queue1),
+    assertz(comp(CompId, ReplyTo, ReqId, Params, Queue1, Results)),
+    comp_step(CompId).
+comp_act(dispatch(Sub, SubParams, Address), CompId, ReplyTo, ReqId, Params,
+         Branch, Rest, Results) :-
+    assertz(comp(CompId, ReplyTo, ReqId, Params, Rest, Results)),
+    retractall(comp_current(CompId, _)),
+    assertz(comp_current(CompId, Branch)),
+    merge_goal_params(Address, SubParams, Params, SubParams1),
+    %  A subgoal is answered to the compound execution, never to the client.
+    %  Its own reply and blocking parameters are irrelevant here.
+    icl_param_merge([reply(true), blocking(true)], SubParams1, SubParams2),
+    dispatch_goal(compound(CompId), ReqId, Sub, SubParams2).
+
+%   A dispatched subgoal has come back.  Every solution continues the branch
+%   it came from; no solutions kills that branch, which is how a failing
+%   conjunct prunes the rest of its sequence.
+
+compound_replied(CompId, _Requestees, _Solvers, Solutions) :-
+    (   retract(comp_current(CompId, Branch))
+    ->  retract(comp(CompId, ReplyTo, ReqId, Params, Queue, Results)),
+        branch_advance(Branch, Solutions, New),
+        append(New, Queue, Queue1),
+        assertz(comp(CompId, ReplyTo, ReqId, Params, Queue1, Results)),
+        comp_step(CompId)
+    ;   true
+    ).
+
+finish_compound(client(ConnId, GoalId), Params, Results) :- !,
+    finish_solve(ConnId, GoalId, _Goal, Params, [], [], Results).
+finish_compound(compound(CompId), _Params, Results) :-
+    compound_replied(CompId, [], [], Results).
+
+%   When a client goes away, drop the requests it was waiting on, along with
+%   any compound execution running on its behalf.
+
 cancel_outstanding_for(ConnId) :-
-    forall(outstanding(request(FacGoalId, ConnId, _, _, _, _, _, _, _, _, _)),
-           ( retractall(outstanding(request(FacGoalId,_,_,_,_,_,_,_,_,_,_))),
-             retractall(replied(FacGoalId, _)) )).
+    forall(outstanding(request(FacGoalId, client(ConnId, _), _, _, _,
+                               _, _, _, _, _, _)),
+           ( retractall(outstanding(request(FacGoalId, _, _, _, _,
+                                            _, _, _, _, _, _))),
+             retractall(replied(FacGoalId, _)) )),
+    forall(comp(CompId, client(ConnId, _), _, _, _, _),
+           ( retractall(comp(CompId, _, _, _, _, _)),
+             retractall(comp_current(CompId, _)) )).
 
 % ---------------------------------------------------------------- data ops
 
