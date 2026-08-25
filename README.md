@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/oaa-logo-classic-sliding-puzzle.gif" width="100" alt="Classic OAA artwork"><br><img src="docs/assets/oaa-next-logo.svg" width="300" height="68" alt="OAA Next">
+  <img src="docs/assets/oaa-logo-classic-sliding-puzzle.gif" width="150" alt="Classic OAA artwork"><br><img src="docs/assets/oaa-next-logo.svg" width="300" height="68" alt="OAA Next">
 </p>
 
 <p align="center"><strong>Classic agent architecture, modern reasoning.</strong></p>
@@ -25,6 +25,17 @@ The question the project exists to answer:
 > What does the original Open Agent Architecture look like when rebuilt
 > faithfully with modern implementations, and given an LLM as a reasoning
 > substrate?
+
+## Contents
+
+- [Getting started](#getting-started)
+- [LLM mode](#llm-mode)
+- [Status](#status)
+- [Historical Source Code](#historical-source-code)
+- [Documentation](#documentation)
+- [Repository layout](#repository-layout)
+- [License](#license)
+- [Trademark and affiliation](#trademark-and-affiliation)
 
 ## Getting started
 
@@ -162,6 +173,20 @@ internals, the meta-agent integration, and architectural boundaries.
 | 4 | LLM extension — optional, disabled by default | **done** |
 | 5 | Modern interoperability — MCP, A2A | **done** |
 | 6 | Documentation and historical comparison | **in progress** |
+
+### Closeness to OAA 2.3.2
+
+| Surface | Verdict |
+|---|---|
+| Core architecture and behavior | **Very high** — Facilitator communities, solvables, unification, delegation, data, triggers, compound goals, direct connections and hierarchies behave as in the recovered system |
+| Prolog public API | **Target parity** — historical mixed-case names and arities are available, including the original callback and lifecycle conventions |
+| ASCII ICL/TCP protocol | **Target parity** — historical envelopes, handshake, registration, addresses, solving and reply layouts interoperate with raw and original-style clients |
+| Agent Development Toolkit | **High** — the historical workflows are present, with modern terminal and browser interfaces replacing platform-specific UI details |
+| Complete multi-language distribution | **Partial** — C ABI, Java/.NET/WebL bindings, SICStus bytecode, Swing applications and OAA 1.x translations are outside the target |
+| **Overall** | **Near drop-in compatibility for the OAA 2.3.2 Prolog/TCP surface, not for every binary and language binding in the historical distribution** |
+
+The evidence and subsystem-by-subsystem assessment are in the
+[`research/compatibility-matrix.md`](research/compatibility-matrix.md).
 
 The core runs in SWI-Prolog. A Facilitator and client agents, each its own
 operating-system process, exchange ICL over TCP: capabilities are declared as

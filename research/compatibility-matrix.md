@@ -40,6 +40,20 @@ meta-agent design: recovered OAA 2.3.2 `fac.pl` executes only `lookup` and
 `prioritize`. `plan_query` and `execute_plan` occur in broader design
 material, but are not deferred executable behavior from this target release.
 
+### Updated closeness verdict
+
+| Surface | Current closeness | Evidence | Remaining difference |
+|---|---|---|---|
+| Architecture | **Very high** | Facilitator-centered communities, solvable registration, unification, delegation, data, triggers, compound goals, direct connections and hierarchies are exercised by the full suite | SWI-Prolog replaces the historical SICStus/Quintus runtime |
+| OAA 2.3.2 Prolog API | **Target parity** | `src/agents/oaa.pl` exports the recovered mixed-case names and arities; an unchanged-style client runs against a live Facilitator | Does not reproduce implementation-private predicates or compiled SICStus artifacts |
+| ICL/TCP wire protocol | **Target parity** | Raw-socket tests exercise `event/2`, `ev_connect` / `ev_connected`, registration, readiness, full addresses, solving and historical reply layouts | Compatibility claim is for the recovered ASCII ICL/TCP protocol, not undocumented transports |
+| Classic agent behavior | **Very high** | Historical `app_do_event`, declarations, data updates and persistence, triggers, delayed solutions, cache, identity, heartbeat handling and version-gated sequencing are covered | Exact timing and failure text can differ across Prolog runtimes |
+| Facilitator behavior | **Very high** | Matching, utility ordering, meta-agent hooks, compound routing, authentication, unique names, blackboards and hierarchy propagation are implemented and integration-tested | Internal data structures and numeric local-ID allocation are intentionally implementation-specific |
+| Agent Development Toolkit | **High** | Generator, shell, debug REPL, Start-It and Monitor workflows are present | Modern terminal/browser interfaces replace historical platform-specific GUI details |
+| Complete historical distribution | **Partial** | The Prolog/TCP system is reconstructed and modern adapters are additive | No replacement C ABI, Java/.NET/WebL bindings, Swing applications or OAA 1.x translation layer |
+| Binary/runtime compatibility | **Not targeted** | The project is an independent source reimplementation on SWI-Prolog | Historical binaries and SICStus bytecode are neither loaded nor reproduced |
+| **Overall** | **Near drop-in compatibility for the OAA 2.3.2 Prolog/TCP surface** | Both raw historical protocol traffic and original-style Prolog source are verified against a live community | It is not a drop-in replacement for every language binding and binary shipped in the complete historical distribution |
+
 Findings from the implementation itself live in the notes rather than here:
 `can_solve` with a wholly unbound goal cannot match a solvable declaring
 required inputs (facilitator.md §8a), ICL's operator set is its own, smaller
@@ -86,7 +100,7 @@ an equivalent seam rather than assume a single Prolog.
 | Facilitator as agent | The facilitator is itself an OAA agent using the same library and communication standards | DG §10.2 | Preserve — this is what makes hierarchies work | reconstructed |
 | Facilitator domain-independence | Domain-independent; domain knowledge lives in meta-agents | FAQ §2.2 | Preserve | reconstructed |
 | Client agent | Any agent that is not a facilitator; connects to a "parent facilitator" and declares its services | DG §3.1 | Same | reconstructed |
-| Agent connection | `com_Connect(parent, [], _Address)` then `oaa_Register(parent, Name, Solvables, Params)` | DG §9.1 | Same two-step | reconstructed |
+| Agent connection | `com_Connect(parent, [], _Address, _Actual)` then `oaa_Register(parent, Name, Solvables, Params)` | DG §9.1, SRC | Same two-step | reconstructed |
 | Event loop | `oaa_MainLoop`; polls an event queue; builtin events handled by the library, user events dispatched to callbacks | DG §4.4 | Same | reconstructed |
 | Startup ordering | Each facilitator must be listening before its clients connect | DG §3.4 | Same | reconstructed |
 | Prolog public API | Mixed-case predicates and historical arities exported by module `oaa` | SRC `oaa.pl` export list | Compatibility facade exports the historical surface; lower-case API remains for new code | reconstructed |
