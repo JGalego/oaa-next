@@ -68,9 +68,15 @@ test(mode_is_classic, [setup(oaa_config_reset)]) :-
     oaa_mode(M),
     M == 'OAA_CLASSIC'.
 
-test(unknown_mode_rejected,
+%  OAA_LLM is a recognised mode; the core simply never consults it.
+test(llm_mode_is_recognised,
      [setup(( oaa_config_reset, setenv('OAA_MODE', 'OAA_LLM') )),
-      cleanup(unsetenv('OAA_MODE')),
+      cleanup(( unsetenv('OAA_MODE'), oaa_config_reset ))]) :-
+    oaa_mode(M), M == 'OAA_LLM'.
+
+test(unknown_mode_rejected,
+     [setup(( oaa_config_reset, setenv('OAA_MODE', 'OAA_ELSEWHERE') )),
+      cleanup(( unsetenv('OAA_MODE'), oaa_config_reset )),
       throws(oaa_error(unsupported_mode(_)))]) :-
     oaa_mode(_).
 

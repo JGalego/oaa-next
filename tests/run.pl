@@ -20,6 +20,9 @@ suite('tests/integration/test_timing.pl').
 suite('tests/integration/test_hierarchy.pl').
 suite('tests/integration/test_direct.pl').
 suite('tests/integration/test_adt.pl').
+suite('tests/llm/test_isolation.pl').
+suite('tests/llm/test_llm_agent.pl').
+suite('tests/llm/test_llm_community.pl').
 
 main(_Argv) :-
     forall(suite(F), ensure_loaded(F)),

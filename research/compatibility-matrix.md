@@ -178,6 +178,22 @@ additive extension that changes nothing about the core, which is the invariant
 this project requires. Recorded here because it means the LLM extension can
 leave the Facilitator alone.
 
+## The LLM extension
+
+Provenance: NEW / LLM EXTENSION. Nothing here corresponds to anything
+historical, which is why it lives outside `src/` core entirely.
+
+| Element | oaa-next | Notes |
+|---|---|---|
+| Mode gate | `OAA_CLASSIC` (default) / `OAA_LLM` | Read by the extension; never by the core |
+| Provider interface | `llm_complete(Messages, Options, Response)` | Messages are `message(Role, Text)`; adapters are replaceable |
+| Adapters | Anthropic, OpenAI-compatible, scripted | Scripted is the default and reaches no network |
+| LLM agent | Declares `interpret/2` and `propose_goal/2` | An ordinary agent: `com_Connect`, `oaa_Register`, callbacks, `oaa_Solve` |
+| LLM meta-agent | Declares `meta(prioritize, ...)` | Advises provider ordering through the hook OAA already had |
+
+The isolation claim is tested rather than asserted: `tests/llm/test_isolation.pl`
+fails if any core module so much as names the extension.
+
 ## Deliberate non-goals
 
 | Modern convention | Why not | Where it may appear instead |

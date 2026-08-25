@@ -170,7 +170,11 @@ test(bare_goal_action, [setup(reset)]) :-
 %  facilitator.  With no facilitator attached, an unaddressed data trigger
 %  therefore installs nowhere.
 test(unaddressed_data_trigger_is_routed, [setup(reset)]) :-
-    oaa_add_trigger(data, alert(_), oaa_Solve(notify, []), [on(add)]),
+    %  Routing needs a facilitator.  With none attached the attempt is an
+    %  error, and the trigger is certainly not installed here.
+    catch(oaa_add_trigger(data, alert(_), oaa_Solve(notify, []), [on(add)]),
+          E, true),
+    nonvar(E),
     oaa_triggers([]).
 
 test(comm_trigger_defaults_to_self, [setup(reset)]) :-

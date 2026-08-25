@@ -40,11 +40,16 @@ it as where to connect, a facilitator as where to listen.
 
 ## Mode
 
-Phase 1 runs in `OAA_CLASSIC` and knows no other value.  The switch exists
-from the start so that later work does not have to retrofit it.  `OAA_LLM` is
-rejected outright: setting it would achieve nothing, since nothing in the core
-consults it.  The LLM extension attaches at the meta-agent boundary, outside
-the core entirely.
+Two modes exist: `OAA_CLASSIC`, the default, and `OAA_LLM`.
+
+Nothing in the core consults the mode.  That is deliberate, and it is what
+makes the classic mode mean something: with LLM support off there is no
+provider to initialise, no credential to supply and no package to install,
+because no part of the core knows an LLM exists.  The mode is read by the LLM
+extension, which lives outside the core and refuses to start unless it is set.
+
+Setting `OAA_LLM` therefore changes nothing on its own.  It permits an LLM
+agent to run; it does not conjure one.
 */
 
 :- dynamic setup_fact/1.
@@ -172,11 +177,12 @@ oaa_facilitator_address(Address) :-
 
 %!  oaa_mode(-Mode) is det.
 %
-%   The operating mode.  Always `'OAA_CLASSIC'` in Phase 1.
+%   The operating mode: `'OAA_CLASSIC'` unless `OAA_MODE` says otherwise.
+%   Read by the LLM extension; never by the core.
 
 oaa_mode(Mode) :-
     oaa_resolve(oaa_mode, Raw, 'OAA_CLASSIC'),
-    (   Raw == 'OAA_CLASSIC'
-    ->  Mode = 'OAA_CLASSIC'
+    (   memberchk(Raw, ['OAA_CLASSIC', 'OAA_LLM'])
+    ->  Mode = Raw
     ;   throw(oaa_error(unsupported_mode(Raw)))
     ).
