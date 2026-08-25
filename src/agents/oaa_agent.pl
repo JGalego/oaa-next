@@ -32,7 +32,9 @@
             oaa_delay_solution/1,       % +Id
             oaa_return_delayed_solutions/2, % +Id, +Solutions
             oaa_add_delayed_context_params/3, % +Id, +Params, -NewParams
-            oaa_current_context/1       % -Contexts
+            oaa_current_context/1,      % -Contexts
+            oaa_setup_communication/1,  % +Params
+            oaa_listener_address/1      % -Address
           ]).
 
 :- use_module('../icl/icl_term').
@@ -59,6 +61,8 @@ a client of another facilitator with no separate federation protocol.
 :- dynamic delay_flag/1.
 :- dynamic delayed_request/5.   % Id, ConnId, GoalId, Goal, Params
 :- dynamic active_context/1.
+:- dynamic my_listener/1.
+:- dynamic direct_conn/2.       % ProviderId, ConnId
 :- dynamic my_local_id/1.
 :- dynamic my_solvable/1.
 :- dynamic goal_counter/1.
@@ -94,6 +98,8 @@ oaa_agent_reset :-
     retractall(delay_flag(_)),
     retractall(delayed_request(_, _, _, _, _)),
     retractall(active_context(_)),
+    retractall(my_listener(_)),
+    retractall(direct_conn(_, _)),
     oaa_data_clear.
 
 % ------------------------------------------------------------ connect
@@ -109,6 +115,25 @@ oaa_connect(Params, Address) :-
     com_connect(parent, Params, Address),
     retractall(parent_conn(_)),
     assertz(parent_conn(parent)).
+
+%!  oaa_setup_communication(+Params) is det.
+%
+%   Open a listener socket, so that requesters may reach this agent directly
+%   rather than through the facilitator.  It has to be done before
+%   oaa_Register, because registration is what reports the socket's existence
+%   to the Facilitator.  Developer's Guide 10.1.
+
+oaa_setup_communication(Params) :-
+    (   memberchk(address(Addr), Params)
+    ->  ListenParams = [address(Addr)]
+    ;   ListenParams = [address(tcp(localhost, _))]
+    ),
+    com_listen_at(listener, ListenParams, addr(tcp(Host, Port))),
+    retractall(my_listener(_)),
+    assertz(my_listener(tcp(Host, Port))).
+
+oaa_listener_address(Addr) :-
+    my_listener(Addr).
 
 %!  oaa_register(+ConnId, +Name, +Solvables, +Params) is det.
 %
@@ -127,7 +152,11 @@ oaa_register(ConnId, Name, Solvables, Params) :-
     forall(member(S, Normalized), assertz(my_solvable(S))),
     declare_builtin_solvables,
     public_solvables(Normalized, Public),
-    com_send(ConnId, ev_register_solvables(Name, Public, Params)),
+    (   my_listener(L)
+    ->  icl_param_merge([listener(L)], Params, RegParams)
+    ;   RegParams = Params
+    ),
+    com_send(ConnId, ev_register_solvables(Name, Public, RegParams)),
     (   oaa_wait_for(ev_registered(LocalId, _Address), 10, _)
     ->  retractall(my_local_id(_)),
         assertz(my_local_id(LocalId))
@@ -324,6 +353,60 @@ solve_strategy(inform, [parallel_ok(true), reply(none)]).
 
 oaa_solve_remote(Goal, Params0) :-
     add_active_contexts(Params0, Params),
+    (   icl_get_param_value(direct_connect(true), Params),
+        \+ icl_get_param_value(address(_), Params),
+        direct_provider(Goal, Params, Conn)
+    ->  solve_direct(Conn, Goal, Params)
+    ;   oaa_solve_via_facilitator(Goal, Params)
+    ).
+
+%!  direct_provider(+Goal, +Params, -ConnId) is semidet.
+%
+%   Find a provider to talk to directly.  Library code first asks the
+%   Facilitator which agents can handle the goal; a direct connection is used
+%   only when there is exactly one and it has registered a listener.  With
+%   more than one candidate, or none with a listener, the request goes to the
+%   Facilitator as it would have anyway.  Developer's Guide 10.1.
+%
+%   provider_limit(1) is the documented way to force the single-provider case.
+
+direct_provider(Goal, Params, ConnId) :-
+    findall(Id, oaa_solve_via_facilitator(can_solve(Goal, Id),
+                                          [address(parent), time_limit(5)]),
+            Ids0),
+    sort(Ids0, Ids),
+    (   Ids = [Id]
+    ->  true
+    ;   icl_get_param_value(provider_limit(1), Params),
+        Ids = [Id|_]
+    ),
+    (   direct_conn(Id, Existing)
+    ->  ConnId = Existing
+    ;   oaa_solve_via_facilitator(agent_listener(Id, Host, Port),
+                                  [address(parent), time_limit(5)]),
+        atom_concat(direct_, Id, ConnId),
+        catch(com_connect(ConnId, [address(tcp(Host, Port))], _), _, fail),
+        assertz(direct_conn(Id, ConnId))
+    ).
+
+%   Over a direct connection the facilitator is out of the loop, so the
+%   parameters that need its participation -- time_limit, parallel_ok, and
+%   most of strategy -- have no effect.  The Developer's Guide lists that as a
+%   limitation rather than an accident.
+
+solve_direct(ConnId, Goal, Params) :-
+    oaa_next_goal_id(GoalId),
+    bind_return_param(get_goal_id(GoalId), Params),
+    wire_params(Params, WireParams),
+    com_send(ConnId, ev_solve(GoalId, Goal, WireParams)),
+    (   com_poll([ConnId], 30, Ready),
+        memberchk(ConnId, Ready),
+        com_read(ConnId, ev_solved(GoalId, _, _, _, _, Solutions))
+    ->  member(Goal, Solutions)
+    ;   fail
+    ).
+
+oaa_solve_via_facilitator(Goal, Params) :-
     oaa_next_goal_id(GoalId),
     bind_return_param(get_goal_id(GoalId), Params),
     icl_get_param_value(reply(Reply), Params, true),

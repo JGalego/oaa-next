@@ -62,6 +62,7 @@ initial_solvables([
     solvable(facilitator_data(_FAddr, _FStep, _FStatus, _FName, _FInfo),
              [type(data), bookkeeping(true)], [write(true)]),
     solvable(icl_type(_Sub, _Super), [type(data)], [write(true)]),
+    solvable(agent_listener(_AId, _AHost, _APort), [type(data)], [write(true)]),
     solvable(data(_Item, _Data), [type(data)], [write(true)]),
     solvable(can_solve(_Goal, _AgentAddr), [callback(fac:handle_can_solve)], []),
     solvable(agent_version(_VId, _Lang, _Version),
@@ -317,7 +318,7 @@ handle(_ConnId, _Event).
 %   Registration is data maintenance on agent_data/6.  Developer's Guide
 %   5.1.6; facilitator.md section 2.
 
-register_agent(ConnId, Name, SolvableSpecs, _Params) :-
+register_agent(ConnId, Name, SolvableSpecs, Params) :-
     (   retract(agent_entry(ConnId, LocalId, _OldName, _St, _Sv, Info))
     ->  true
     ;   next_local_id(LocalId), Info = []
@@ -328,9 +329,23 @@ register_agent(ConnId, Name, SolvableSpecs, _Params) :-
     oaa_data_add(facilitator,
                  agent_data(LocalId, client, ready, Solvables, Name, Info),
                  [], _),
+    record_listener(LocalId, Params),
     com_address(ConnId, Address),
     com_send(ConnId, ev_registered(LocalId, Address)),
     refresh_upward_registration.
+
+%   A provider willing to take requests over a direct connection opens a
+%   listener before registering, and reports it here.  The Facilitator keeps
+%   the address for requesters that ask for direct_connect.  Developer's
+%   Guide 10.1.
+
+record_listener(LocalId, Params) :-
+    oaa_data_remove(facilitator, agent_listener(LocalId, _, _),
+                    [do_all(true)], _),
+    (   icl_get_param_value(listener(tcp(Host, Port)), Params)
+    ->  oaa_data_add(facilitator, agent_listener(LocalId, Host, Port), [], _)
+    ;   true
+    ).
 
 normalize_incoming(Specs, Solvables) :-
     (   catch(solvable_list(Specs, Solvables), _, fail)
@@ -402,6 +417,28 @@ fac_registry(Registry) :-
 
 begin_solve(ConnId, GoalId, Goal, Params) :-
     requester_id(ConnId, RequesterId),
+    (   icl_get_param_value(test(Test), Params),
+        \+ test_holds_here(Test)
+    ->  %  Developer's Guide 6.9: a test parameter names a condition to
+        %  evaluate on the facilitator receiving the request.  Only where it
+        %  holds is the goal solved -- "send this to the interface agent, but
+        %  only on a facilitator where the user's name is 'phil'".  Useful
+        %  chiefly across several facilitators.
+        finish_solve(ConnId, GoalId, Goal, Params, [], [], [])
+    ;   begin_solve_here(ConnId, GoalId, Goal, Params, RequesterId)
+    ).
+
+%   The test is evaluated against this community, synchronously and against
+%   what the facilitator can answer without delegating.  A test that needs a
+%   round trip to a client would reintroduce the wait this design avoids
+%   everywhere else, so it is deliberately limited to locally answerable
+%   conditions: the facilitator's own solvables and its clients' declared
+%   data, both of which it holds.
+
+test_holds_here(Test) :-
+    catch(once(oaa_solve_local(Test, [])), _, fail).
+
+begin_solve_here(ConnId, GoalId, Goal, Params, RequesterId) :-
     (   is_compound_goal(Goal)
     ->  begin_compound(client(ConnId, GoalId), RequesterId, Goal, Params)
     ;   icl_disassemble_goal(Goal, Address, Bare, GoalParams),

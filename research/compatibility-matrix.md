@@ -25,7 +25,6 @@ dropped:
 
 | Deferred | Why |
 |---|---|
-| `direct_connect` | An optimisation, and explicitly limited even historically |
 | Time triggers | Never in the historical libraries either — they need the separate Alarm agent |
 
 Findings from the implementation itself live in the notes rather than here:
@@ -161,7 +160,7 @@ an equivalent seam rather than assume a single Prolog.
 | Multiple facilitators | Strictly hierarchical (tree) topology is the only pattern with library support; a node facilitator is one started with `oaa_connect` to a parent | DG §10.2 | Same. A node registers upward with the union of its clients' solvables, so downward reach needs no propagation and no federation protocol | reconstructed |
 | Propagation | `propagate([up/1, down/1, up_limit/1, down_limit/1])`; `up`/`down` take `true`, `false`, `if_no_solvers`; default is no propagation | DG §6.10 | Same defaults; `up_limit` counts down across levels, and a goal that arrived from the parent is never referred back up | reconstructed |
 | Referred goals | Carry the originating facilitator's address as continuation information; the responding agent's identity returns to the originator | DG §10.2 | The reply tag is the continuation | reconstructed |
-| Direct connect | `direct_connect(true)` bypasses the facilitator for message flow while the facilitator still selects the provider; requires a provider listener socket registered before `oaa_Register`; single-provider, single-facilitator, `oaa_Solve` only; `time_limit` and `parallel_ok` ignored | DG §10.1 | Same, incl. limitations | deferred |
+| Direct connect | `direct_connect(true)` bypasses the facilitator for message flow while the facilitator still selects the provider; requires a provider listener socket registered before `oaa_Register`; single-provider, single-facilitator, `oaa_Solve` only; `time_limit` and `parallel_ok` ignored | DG §10.1 | Same, including the limitations | reconstructed |
 | Meta-agents: `prioritize` | Given the Facilitator's sorted candidate list, return a reordering | DG §5.6 | Consulted as an ordinary dispatch answered to a `meta(...)` reply tag | reconstructed |
 | Meta-agents: `lookup` | Given a goal nothing can solve, find and start an agent that can; selection is repeated on success | DG §5.6 | Same | reconstructed |
 | Meta-agents: `plan_query`, `execute_plan` | Refine or take over the Facilitator's routing plan for a compound goal | DG §5.6 | Not yet | deferred |
