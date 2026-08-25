@@ -1,25 +1,24 @@
 # ICL — the Interagent Communication Language
 
-ICL is an extension of Prolog syntax, chosen — the Developer's Guide is
-explicit about this — for unification and backtracking, and so that agent
+ICL extends Prolog syntax. The Developer's Guide says it was chosen for
+unification and backtracking, and so that agent
 messages can in principle be translated to and from natural language (§3.3,
 FAQ §2.4). Every event, every goal, every solvable declaration on the wire is
 an ICL term.
 
 ## Two layers
 
-A **conversational layer** of event types and parameter lists —
-`ev_solve(GoalId, Goal, Params)`, `[type(data), utility(8)]` — sits over a
+A **conversational layer** of event types and parameter lists, such as
+`ev_solve(GoalId, Goal, Params)` and `[type(data), utility(8)]`, sits over a
 **content layer** of goals, triggers and data elements written in ICL
 itself. The Developer's Guide compares this explicitly to KQML wrapping KIF
-(§4.3). Keeping content inside ICL rather than behind an opaque payload
-matters concretely: it is what lets the Facilitator read a compound goal
-well enough to decompose it into independently routable pieces.
+(§4.3). Content stays inside ICL so the Facilitator can read a compound goal
+and decompose it into independently routable pieces.
 
 ## Grammar
 
 ICL is Prolog-like, not Prolog. It has its own operator table, smaller than
-standard Prolog's, with its own precedence order — both surviving historical
+standard Prolog's, with its own precedence order. Both surviving historical
 grammars (an ANTLR grammar for the Java library, a PCCTS grammar for C)
 define the same chain:
 
@@ -36,7 +35,7 @@ define the same chain:
 | 200 | `+` `-` (prefix) |
 
 Every infix operator is left-associative. A symbol run that doesn't spell
-one of these stays an ordinary symbolic atom — `f(x) ==> y` is two
+one of these stays an ordinary symbolic atom. For example, `f(x) ==> y` is two
 subterms, not an implication, and deferring to a full Prolog reader would
 silently accept more than the historical parser did. `src/icl/icl_ops.pl`
 holds the table; `icl_lex.pl`, `icl_parse.pl` (precedence climbing) and
@@ -47,7 +46,7 @@ operators at all, is in
 
 ## Compound goals on the wire
 
-`(A, B)` is a group, priority 1300, and is how a conjunction is written — a
+`(A, B)` is a group, priority 1300, and is how a conjunction is written. A
 bare `A, B` at top level is a syntax error, matching the historical grammar
 exactly. `A ; B` is disjunction. A subgoal inside a compound request can
 carry its own address and parameters: `Address:Goal::Params`, disassembled
@@ -56,20 +55,20 @@ by `icl_disassemble_goal/4` and reassembled by `icl_assemble_goal/4`
 
 ## Types and matching
 
-ICL's type hierarchy is a lattice, not a tree — `icldataq/1`, for instance,
+ICL's type hierarchy is a lattice, not a tree. For instance, `icldataq/1`
 descends from both `string` and `compound`, and a single-parent
 representation gives wrong answers for it
 (`icl_subtype/2` in `src/icl/icl_type.pl`;
 [`../../research/implementation-notes/icl.md`](../../research/implementation-notes/icl.md) §1).
 `icl_conforms/2` checks a value against a type spec respecting supertype
 relations (`3` conforms to both `number` and `atomic`). Matching a goal
-against a solvable template is plain unification — `icl_matches/2` — never
-similarity or type coercion.
+against a solvable template uses plain unification through `icl_matches/2`,
+without similarity or type coercion.
 
 ## Parameter lists
 
-`[type(data), single_value(true), persistent]` — a functor-with-arguments
-list. A boolean parameter with value `true` may drop the argument entirely
+`[type(data), single_value(true), persistent]` is a functor-with-arguments
+list. A boolean parameter with value `true` may omit the argument entirely
 (`persistent` means `persistent(true)`), and defaults are elided on the wire
 and reapplied on receipt. `icl_params.pl` implements lookup
 (`icl_get_param_value/2,3`), merging (`icl_param_merge/3`) and default

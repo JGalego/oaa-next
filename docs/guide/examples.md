@@ -1,24 +1,24 @@
 # Examples
 
-A guided tour of `examples/`, grouped by what each one is there to show
-rather than by directory. Every example is runnable on its own; most start
+The examples are grouped here by what they demonstrate, not by directory.
+Every example is runnable on its own; most start
 their own Facilitator and agents as separate processes via
 `tests/integration/community.pl`'s pattern, or can be launched by hand as
 shown in the main [`README`](../../README.md#running-it).
 
-## `examples/basic/` — the smallest community
+## `examples/basic/`: the smallest community
 
-- `square_agent.pl` / `greet_agent.pl` — one procedure solvable each. The
+- `square_agent.pl` / `greet_agent.pl`: one procedure solvable each. The
   smallest thing recognisably an OAA agent: declare a solvable, define the
   callback, connect, register, loop.
-- `client.pl` — requests services it cannot perform itself, declaring no
+- `client.pl`: requests services it cannot perform itself, declaring no
   solvables of its own, which the Developer's Guide explicitly allows: an
   agent with nothing to offer the community can still be a pure requester.
 
-Start here to see delegation transparency in its simplest form: the client
+These files show delegation transparency in its simplest form: the client
 never names an agent, host or port.
 
-## `examples/multi-agent/` — the rest of the architecture
+## `examples/multi-agent/`: the rest of the architecture
 
 | Example | Demonstrates |
 |---|---|
@@ -39,21 +39,21 @@ never names an agent, host or port.
 `check_reply_arity/0` installs a `comm` trigger on itself before calling
 `oaa_AddData`, because the ordinary reply path (`oaa_wait_for/3` inside
 `oaa_AddData`) consumes that event before an `app_do_event` callback would
-ever see it — see [`triggers.md`](triggers.md#comm-triggers-see-traffic-not-just-what-youre-waiting-for).
+ever see it. See [`triggers.md`](triggers.md#comm-triggers-observe-all-traffic).
 
-## `examples/llm/` — the optional extension
+## `examples/llm/`: the optional extension
 
-- `scripted_llm_agent.pl` — an LLM-backed agent running against the scripted
+- `scripted_llm_agent.pl`: an LLM-backed agent running against the scripted
   provider, so its behaviour is deterministic and it makes no network call.
-- `llm_client.pl` — asks for `interpret/2` with no idea an LLM is involved:
+- `llm_client.pl`: asks for `interpret/2` with no idea an LLM is involved:
   the Facilitator finds an agent that provides it, and an answer comes back
   through the ordinary delegation path, exactly like any other capability.
-- `office_assistant.pl` — the natural-language front end for the Office
+- `office_assistant.pl`: the natural-language front end for the Office
   Assistant demo, below.
 
-These exist to demonstrate the isolation claim concretely: nothing about
-being a requester in this community changes when the capability behind a
-goal happens to be LLM-backed. See [`llm-agents.md`](llm-agents.md).
+These examples exercise the isolation claim. A requester behaves the same
+whether the capability behind a goal is LLM-backed or not. See
+[`llm-agents.md`](llm-agents.md).
 
 ## The Office Assistant demo
 
@@ -61,17 +61,17 @@ goal happens to be LLM-backed. See [`llm-agents.md`](llm-agents.md).
 `examples/multi-agent/`), `office_assistant.pl` (`examples/llm/`) and
 `office_client.pl` (`examples/multi-agent/`) together reconstruct the
 pattern behind what Adam Cheyer's own site calls "the 'original' OAA
-demonstration" — full citation and what is and isn't attested in
+demonstration." Citations and the limits of the evidence are in
 [`../../research/office-demo.md`](../../research/office-demo.md). The
-client sends the demo's own documented command, verbatim —
+client sends the demo's documented command verbatim:
 
 > When mail arrives for me about "security" get it to me by telephone.
 
-— to the LLM agent's `propose_goal/2`, gets back an ICL
-`oaa_AddTrigger(...)` term, and installs it: a data trigger on the mail
+The LLM agent's `propose_goal/2` returns an ICL `oaa_AddTrigger(...)` term,
+which the client installs as a data trigger on the mail
 solvable that delegates delivery to the Telephone agent when a matching
 message arrives. Two messages then "arrive" (an ordinary `oaa_AddData`, run
-by whichever agent has something to deliver — here, the client itself);
+by whichever agent has something to deliver, in this case the client itself);
 only the one about security is delivered.
 
 This is provenance NEW / ILLUSTRATIVE, not RECONSTRUCTED: the trigger
@@ -89,10 +89,10 @@ this example working.
 `office_ui_agent.pl` and `office_ui/index.html` (both
 `examples/multi-agent/`) add a graphical front end: a hand-drawn
 reconstruction of the screenshot's own room composition, served over plain
-HTTP by one more ordinary agent standing in for a "User Interface Agent" —
-see the "visual reconstruction" section of
-[`../../research/office-demo.md`](../../research/office-demo.md) for what
-that does and doesn't claim about fidelity.
+HTTP by another ordinary agent standing in for a "User Interface Agent."
+The "visual reconstruction" section of
+[`../../research/office-demo.md`](../../research/office-demo.md) describes
+what this does and does not claim about fidelity.
 
 Run it alongside the rest of the community:
 
@@ -106,12 +106,12 @@ swipl examples/multi-agent/office_ui_agent.pl
 
 then open the URL the last one prints. The command bar comes pre-filled
 with the screenshot's own sentence; "Do It!" installs the trigger through
-`propose_goal/2` exactly as `office_client.pl` does, and the two "simulate
-mail arriving" buttons send mail an ordinary `oaa_AddData` the same way —
-only the one about "security" is ever delivered, which the activity log and
-a "ring ring…" tag both show. `tests/llm/test_office_ui.pl` exercises the
+`propose_goal/2` as `office_client.pl` does. The two "simulate mail arriving"
+buttons send mail through ordinary `oaa_AddData` calls. Only the message
+about "security" is delivered, as shown by the activity log and a
+"ring ring…" tag. `tests/llm/test_office_ui.pl` exercises the
 same three HTTP endpoints (`/command`, `/mail`, `/state`) a browser uses,
-so this stays working the same way the non-visual client does.
+which keeps the browser and non-visual clients under the same tests.
 
 ## Running the whole set
 

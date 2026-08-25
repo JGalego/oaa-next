@@ -1,7 +1,7 @@
 # Agents
 
-An agent, in OAA, is defined by what the agent library gives it — the
-Developer's Guide puts it exactly that way, and `src/agents/` is that
+The OAA agent library defines what an agent is. The Developer's Guide uses
+that definition, and `src/agents/` provides the
 library: connect, register, declare solvables, request services, answer
 requests, maintain data, disconnect. Nothing about being an agent requires
 implementing any of that yourself.
@@ -10,15 +10,15 @@ implementing any of that yourself.
 
 | Module | Responsibility |
 |---|---|
-| `oaa_agent.pl` | Connection, registration, `oaa_Solve`, data maintenance, event dispatch — the library surface most agent code calls |
+| `oaa_agent.pl` | Connection, registration, `oaa_Solve`, data maintenance and event dispatch; the library surface most agent code calls |
 | `oaa_solvable.pl` | Solvable normalization, matching, permission and parameter lookup |
 | `oaa_data.pl` | The data store behind data solvables |
 | `oaa_trigger.pl` | Trigger installation, condition matching, firing |
 | `oaa_time.pl` | ICL date/time conversion for time triggers |
 | `oaa_run.pl` | The convenience layer most agents actually call: `oaa_agent_start/3`, the main loop |
 
-`fac.pl` is built on exactly this library — a Facilitator is a client of
-this same API, not a separate implementation.
+`fac.pl` uses this library too. A Facilitator is a client of the same API,
+not a separate implementation.
 
 ## Minimal agent
 
@@ -41,8 +41,8 @@ callbacks (`app_do_event`, or a solvable's own `callback` parameter).
 ## Requesting services
 
 `oaa_solve/2` is the one entry point for asking anything of the community,
-whether the answer comes from a procedure or from data — Developer's Guide
-§4.3.3 makes the same point about `oaa_Solve` covering both. It behaves like
+whether the answer comes from a procedure or from data. The Developer's Guide
+§4.3.3 also defines `oaa_Solve` as covering both. It behaves like
 Prolog's `call/1`: it can fail, succeed once, or backtrack over solutions
 from every matching agent, and the requester never learns which agent
 answered unless it asks for that explicitly via `get_address` /
@@ -50,7 +50,7 @@ answered unless it asks for that explicitly via `get_address` /
 
 Advice parameters shape the request without changing its meaning:
 `address`, `solution_limit`, `provider_limit`, `blocking`, `reply`,
-`parallel_ok`, `time_limit`, and more — the full set is in
+`parallel_ok`, `time_limit`, and more. The full set is in
 [`api-reference.md`](api-reference.md) and
 [`../../research/compatibility-matrix.md`](../../research/compatibility-matrix.md).
 Three combinations are common enough to have names: `strategy(query)` is
@@ -79,11 +79,11 @@ not in the library module that stored it.
 
 ## Connecting and registering, the two steps
 
-`com_Connect(parent, [], Address)` opens the transport connection;
+`com_Connect(parent, [], Address)` opens the transport connection.
 `oaa_Register(ConnId, Name, Solvables, Params)` declares what the agent
 offers over it. Keeping these separate (rather than one combined call)
-mirrors the historical two-step exactly (Developer's Guide §9.1) and is what
-lets a direct-connect listener be opened between them.
+preserves the historical two-step (Developer's Guide §9.1) and allows a
+direct-connect listener to be opened between them.
 
 ## The event loop
 

@@ -4,15 +4,15 @@ The Facilitator is the agent that holds a community together: it keeps a
 live index of who can do what, matches incoming goals against that index,
 orders and dispatches to candidates, and collects and relays results. It
 does this as an ordinary agent, using the same library every client uses
-(Developer's Guide §10.2) — `src/facilitator/fac.pl` starts by declaring the
+(Developer's Guide §10.2). `src/facilitator/fac.pl` starts by declaring the
 facilitator solvables and then runs the same event loop as
 `src/agents/oaa_run.pl` gives anyone.
 
 ## The registry
 
-Every registered agent is recorded as an instance of `agent_data/6`
-(`agent_data(LocalId, Kind, Status, Solvables, Name, Info)`) — a data
-solvable like any other, queryable through `oaa_Solve`. Registration
+Every registered agent is recorded in the data solvable
+`agent_data(LocalId, Kind, Status, Solvables, Name, Info)`, which is
+queryable through `oaa_Solve`. Registration
 (`oaa_Register`) replaces the entry for a reconnecting agent rather than
 duplicating it; a listener address recorded for direct connect lives
 alongside it in `agent_listener/3`. See
@@ -22,21 +22,20 @@ rather than a separate table.
 
 ## Matching, ordering, selecting
 
-`fac_delegate.pl` is the pure selection logic, deliberately kept apart from
-I/O:
+`fac_delegate.pl` keeps the pure selection logic separate from I/O:
 
 - `fac_candidates/3` filters the registry to agents whose solvable templates
   unify with the goal.
 - `fac_order/2` sorts candidates by descending declared utility, stable
   within a utility band (a keysort on `NegU-Pos`, not a plain sort, so equal
   utilities keep registration order).
-- `fac_select/5` applies request parameters — `solution_limit`,
-  `provider_limit`, `address`, and so on — to the ordered candidates.
+- `fac_select/5` applies request parameters such as `solution_limit`,
+  `provider_limit` and `address` to the ordered candidates.
 - `fac_dispatch_plan/4` decides how to dispatch: one round for a simple
   goal, one step of a branch walk for a compound one.
 
-Keeping this apart from `fac.pl`'s connection handling is what makes it
-testable without a live community — see `tests/facilitator/test_delegate.pl`.
+Its separation from `fac.pl`'s connection handling allows tests to run
+without a live community. See `tests/facilitator/test_delegate.pl`.
 
 ## Compound goals
 
@@ -60,9 +59,9 @@ knowing anything about how that agent decides:
 - **`lookup`** — given a goal nothing local can solve, find or start an
   agent that can; selection repeats once one registers.
 
-Both are consulted the same way any delegated goal is answered — through the
-ordinary reply-tag mechanism below — which is what avoids a facilitator
-deadlocking on an agent that is, in turn, waiting on the facilitator (see
+Both are consulted through the ordinary reply-tag mechanism used for any
+delegated goal. A facilitator therefore does not deadlock on an agent that
+is itself waiting on the facilitator (see
 [`../../research/implementation-notes/facilitator.md`](../../research/implementation-notes/facilitator.md)
 §5a). `plan_query` and `execute_plan`, which would let a meta-agent take
 over compound-goal routing entirely, remain deferred (see
@@ -73,15 +72,15 @@ over compound-goal routing entirely, remain deferred (see
 A naive Facilitator that blocks on each leg of a request deadlocks the
 moment two agents wait on each other through it. `oaa-next` avoids this with
 continuation-tagged replies: every outstanding request the Facilitator is
-waiting on carries a tag — `client(...)`, `compound(...)`, or `meta(...)` —
+waiting on carries a `client(...)`, `compound(...)`, or `meta(...)` tag
 recording what to do with the answer when it arrives, so the Facilitator's
-own event loop never has to block inside a request handler. This single
-mechanism is what makes compound goals and meta-agent consultation both work
-without a separate deadlock-avoidance path for each.
+own event loop never has to block inside a request handler. The same tags
+serve compound goals and meta-agent consultation, avoiding separate
+deadlock-handling paths.
 
 ## Hierarchies
 
-Multiple Facilitators compose strictly as a tree — the only topology the
+Multiple Facilitators compose strictly as a tree, the only topology the
 library supports (Developer's Guide §10.2). A node facilitator is one
 started with `oaa_connect` to a parent; it registers upward with the union
 of its own clients' solvables, so downward reach needs no separate
@@ -97,8 +96,8 @@ exchange the goal and its solutions directly over a socket, bypassing the
 Facilitator for message flow while the Facilitator still performs selection.
 It requires the provider to have registered a listener address beforehand,
 applies only to a single provider and a single facilitator, and ignores
-`time_limit` and `parallel_ok` — all historical constraints, preserved here
-rather than lifted (Developer's Guide §10.1).
+`time_limit` and `parallel_ok`. These historical restrictions remain in
+place (Developer's Guide §10.1).
 
 ## Running one
 

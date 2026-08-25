@@ -1,10 +1,9 @@
 # Data
 
-A data solvable is, functionally, a relational table — but it is queried
-and updated through exactly the same interface as any procedural
-capability, which is the point: an agent asking for data doesn't need to
-know whether the answer comes from a computation or a lookup (Developer's
-Guide §7).
+A data solvable functions as a relational table and uses the same query and
+update interface as a procedural capability. An agent asking for data does
+not need to know whether the answer comes from a computation or a lookup
+(Developer's Guide §7).
 
 ## Declaring one
 
@@ -18,26 +17,25 @@ it, the same as any other agent would need to.
 
 ## Querying
 
-Through `oaa_Solve` — a data solvable's clauses match a goal by unification
-exactly like a procedure's, and `oaa_Solve` backtracks over every matching
+Queries go through `oaa_Solve`. A data solvable's clauses match a goal by
+unification like a procedure's, and `oaa_Solve` backtracks over every matching
 fact from every agent that provides one, subject to the usual advice
 parameters.
 
 ## Maintaining
 
 `oaa_AddData(Clause, Params)`, `oaa_RemoveData(Clause, Params)`,
-`oaa_ReplaceData(Clause1, Clause2, Params)` — routed exactly like
+`oaa_ReplaceData(Clause1, Clause2, Params)` are routed like
 `oaa_Solve`: an `address` sends the operation to named agents directly;
 without one, the Facilitator treats the clause as a goal and finds every
 agent with a matching writable data solvable (Developer's Guide §7.1–7.3).
-`oaa_ReplaceData` is atomic — the old clause is never visible as absent
+`oaa_ReplaceData` is atomic: the old clause is never visible as absent
 while the new one isn't yet present.
 
 New facts are appended by default; `at_beginning(true)` prepends instead.
 Removal takes `do_all(true)` to remove every match, or defaults to removing
-just the first — an unbound removal pattern with no `do_all` therefore
-takes only the first matching fact, which reads as surprising until you
-expect it.
+just the first. An unbound removal pattern without `do_all` therefore takes
+only the first matching fact.
 
 ## Constraints
 
@@ -48,34 +46,32 @@ cannot silently override a constraint the solvable itself declared.
 
 ## The reply to a data update
 
-`ev_data_updated(GoalId, Mode, Payload, Requestees, Solvers, Params)` — six
-arguments. This was not obvious from the Developer's Guide's prose alone;
+`ev_data_updated(GoalId, Mode, Payload, Requestees, Solvers, Params)` has six
+arguments. The Developer's Guide's prose did not establish the arity;
 it was settled by reading SRI's own OTML conformance test corpus
 (`samples/test3/parallel.otml` in the recovered distribution, transcribed in
 `tests/compatibility/test_conformance.pl`), which exercises the wire format
 directly. An earlier implementation here sent three arguments and passed
-every unit test that didn't touch the wire shape, which is exactly the kind
-of gap conformance testing against the historical record exists to catch.
+every unit test that didn't touch the wire shape. Conformance tests against
+the historical record caught the gap.
 See [`communication.md`](communication.md) for the full event table.
 
 ## Ownership
 
 The library records which agent added each fact. Facts are removed when
 their owning agent disconnects, unless `bookkeeping(false)` or
-`persistent(true)` says otherwise (Developer's Guide §7.5) — so a data
+`persistent(true)` says otherwise (Developer's Guide §7.5). A data
 solvable can either behave as session-scoped (the default) or survive its
 contributor's disconnection.
 
 ## Blackboards
 
-A blackboard is nothing more than a data solvable declared with
-`address(parent)` — on the Facilitator itself rather than on the declaring
-agent — which is what makes it visible and writable by every other agent in
-the community rather than only by whoever declared it (Developer's Guide
-§5.2, §7.7). There is no separate blackboard mechanism to learn; it falls
-out of address routing applied to an ordinary data solvable.
+A blackboard is a data solvable declared with `address(parent)`. It resides
+on the Facilitator instead of the declaring agent, so every agent in the
+community can see and write it (Developer's Guide §5.2, §7.7). Blackboard
+behaviour follows from address routing applied to an ordinary data solvable.
 
 ## Data triggers watch this
 
-A data solvable's add/remove/replace operations are exactly what `data`-type
-triggers fire on — see [`triggers.md`](triggers.md).
+`data`-type triggers fire on a data solvable's add, remove and replace
+operations. See [`triggers.md`](triggers.md).

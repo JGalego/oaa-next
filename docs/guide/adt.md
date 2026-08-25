@@ -1,9 +1,9 @@
 # The Agent Development Toolkit
 
-The historical ADT (Martin, Cheyer & Lee, PAAM'96) is the set of tools built
-around the agent library rather than into it: something to generate a new
-agent's boilerplate, watch a community's traffic, poke it interactively, and
-launch it as a unit. `oaa-next` reconstructs each role from the Developer's
+The historical ADT (Martin, Cheyer & Lee, PAAM'96) comprises tools built
+around the agent library. They generate agent boilerplate, watch community
+traffic, provide interactive access and launch a community as a unit.
+`oaa-next` reconstructs each role from the Developer's
 Guide and FAQ description of what it did, since the PAAM'96 paper itself has
 not yet been retrieved (tracked as `partial` provenance in
 [`../../research/compatibility-matrix.md`](../../research/compatibility-matrix.md)).
@@ -22,17 +22,17 @@ not yet been retrieved (tracked as `partial` provenance in
 swipl bin/oaa-new-agent.pl -- my_agent path/to/my_agent.pl
 ```
 
-Writes a runnable agent skeleton — `use_module` lines, an `oaa_agent_start`
-call with a solvable list, and a stub handler per declared goal — so that
-starting a new agent means filling in behaviour, not copying boilerplate by
-hand. `new_agent/3` in `src/adt/oaa_new_agent.pl` is the underlying
+Writes a runnable agent skeleton containing `use_module` lines, an
+`oaa_agent_start` call with a solvable list, and a stub handler per declared
+goal. Starting a new agent then means filling in behaviour rather than
+copying boilerplate. `new_agent/3` in `src/adt/oaa_new_agent.pl` is the underlying
 predicate.
 
 ## Shell
 
-An interactive REPL that connects as an ordinary client and turns each line
-typed at it into an `oaa_Solve`, printing whatever solutions come back —
-`shell_solve/2` in `src/adt/oaa_shell.pl`. This is command-line access to
+An interactive REPL that connects as an ordinary client and passes each line
+to `oaa_Solve`, printing the returned solutions. `shell_solve/2` in
+`src/adt/oaa_shell.pl` implements it. This is command-line access to
 the community in the sense the FAQ describes; it is not a Prolog top-level,
 so it accepts ICL, not arbitrary Prolog.
 
@@ -44,8 +44,8 @@ Historically shipped in both Java and C builds; here it is one Prolog REPL
 (`debug_main/0` / `debug_loop/0` in `src/adt/oaa_debug.pl`). The historical
 tool could also send natural-language messages for an NL-capable community
 to interpret; that capability is left to whatever NL or LLM agent is present
-in the community, exactly as it was historically — Debug itself does no
-language processing.
+in the community, as it did historically. Debug itself does no language
+processing.
 
 ## Start-It
 
@@ -61,8 +61,8 @@ do by hand with `&`.
 
 Displays a running community and records its communications. There is no
 graphical framework carried over from the historical Java/C builds, so
-Monitor here is a terminal display; the substance — learning the community
-by querying `agent_data/6` and watching traffic — is preserved by installing
+Monitor here is a terminal display. It learns about the community by querying
+`agent_data/6` and watches traffic by installing
 a `comm` trigger on the Facilitator and printing what passes
 (`monitor_main/0` in `src/adt/oaa_monitor.pl`). See [`triggers.md`](triggers.md)
 for what a comm trigger sees and doesn't.
@@ -70,7 +70,6 @@ for what a comm trigger sees and doesn't.
 ## What's left
 
 The PAAM'96 paper describing the ADT in SRI's own words would sharpen a few
-details (whether the historical generator did anything beyond scaffolding,
-for instance) but nothing here waits on it — the four roles above are well
-enough attested by the Developer's Guide and FAQ to reconstruct
-independently.
+details, such as whether the historical generator did anything beyond
+scaffolding. The Developer's Guide and FAQ attest the four roles above well
+enough to reconstruct them independently.

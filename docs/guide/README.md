@@ -1,10 +1,9 @@
 # oaa-next documentation guide
 
-This guide follows the shape of the historical OAA documentation set —
-because recognisability is a goal of this project — while being written
-independently rather than reproduced from it. Where a page states a
+This independently written guide follows the shape of the historical OAA
+documentation set so readers can recognise its organization. Where a page states a
 historical fact, it cites the Developer's Guide, the FAQ or the recovered
-source by section, the same way `research/` does.
+source by section, following the practice used in `research/`.
 
 1. [Architecture](architecture.md) — the shape of a community and why it has that shape
 2. [Concepts](concepts.md) — agent, solvable, goal, event, parameter list, in one place

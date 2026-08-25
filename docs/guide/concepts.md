@@ -49,7 +49,7 @@ placement and firing rules. See [`triggers.md`](triggers.md).
 **Meta-agent** — an agent the Facilitator consults during delegation:
 `prioritize` to reorder candidates, `lookup` to find a solver when none is
 registered. Optional, and the Facilitator's own default runs when none
-answers. This is the seam the LLM extension uses.
+answers. The LLM extension uses this hook.
 
 **Utility** — an integer 0–10 a solvable declares, used to order candidates
 when several agents can solve the same goal (default 5).
