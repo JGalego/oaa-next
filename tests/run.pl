@@ -22,6 +22,7 @@ suite('tests/integration/test_direct.pl').
 suite('tests/integration/test_adt.pl').
 suite('tests/llm/test_isolation.pl').
 suite('tests/llm/test_llm_agent.pl').
+suite('tests/llm/test_llm_openai_wire.pl').
 suite('tests/llm/test_llm_community.pl').
 suite('tests/llm/test_office_demo.pl').
 suite('tests/interop/test_interop.pl').

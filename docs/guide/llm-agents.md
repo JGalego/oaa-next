@@ -50,11 +50,36 @@ mean nothing in the extension is coupled to one vendor —
 |---|---|
 | `llm_scripted.pl` | None — deterministic canned responses, the default, and what every example and test that needs an LLM-shaped agent runs against |
 | `llm_anthropic.pl` | Anthropic Messages API over raw HTTP |
-| `llm_openai.pl` | An OpenAI-compatible endpoint |
+| `llm_openai.pl` | Any OpenAI-compatible chat-completions endpoint |
 
 The scripted provider existing as a first-class option (not a mock bolted
 onto tests) is what keeps `make test` and every LLM example runnable with no
 credentials and no outbound network call.
+
+`llm_openai.pl` is written against the chat-completions shape rather than
+against OpenAI specifically, because that shape is what most self-hosted
+runtimes copy as well — Ollama, vLLM, LM Studio and llama.cpp's server all
+answer at a `/chat/completions` path with the same request and reply shape
+OpenAI's hosted API uses. `LLM_BASE_URL` (or `-llm_base_url`) is what
+distinguishes them:
+
+```
+LLM_PROVIDER=openai
+LLM_BASE_URL=https://api.openai.com/v1        # OpenAI's own hosted API
+OPENAI_API_KEY=...
+
+LLM_PROVIDER=openai
+LLM_BASE_URL=http://localhost:11434/v1        # a local runtime instead
+                                               # (no key needed for most)
+```
+
+No code changes between the two — only where the adapter points, which is
+the point of a provider being an adapter rather than a special case.
+`tests/llm/test_llm_openai_wire.pl` exercises the actual request and reply
+handling (model, message content, `max_tokens`, token usage, and a
+content-filter refusal) against a local stub server standing in for either
+of the above, so the wire format itself is under test, not only that a
+provider by this name is registered.
 
 ## The LLM agent
 
