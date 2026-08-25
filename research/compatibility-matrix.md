@@ -194,6 +194,32 @@ historical, which is why it lives outside `src/` core entirely.
 The isolation claim is tested rather than asserted: `tests/llm/test_isolation.pl`
 fails if any core module so much as names the extension.
 
+## Interoperability adapters
+
+Provenance: INTEROPERABILITY ADAPTER. Not OAA, and kept visibly separate from
+it. Each is an ordinary OAA agent that translates at the edge; nothing inside
+the community changes shape to accommodate one.
+
+| Adapter | Direction | Notes |
+|---|---|---|
+| `icl_json` tagged | ICL ↔ JSON, lossless | Every term survives a round trip, variables and functors included |
+| `icl_json` plain | ICL → JSON, lossy | Natural JSON a consumer reads without knowing ICL; atoms and strings become indistinguishable |
+| `solvable_to_schema` | Solvable → JSON Schema | Argument names come from `argnames`, types from `argspecs` |
+| `mcp_server` | OAA community → MCP server | JSON-RPC 2.0 over stdio; capabilities become tools |
+| `a2a_bridge` | OAA community → A2A agent | The Facilitator's registry projected as an Agent Card |
+
+What the translation loses is worth naming. An MCP tool call is one call with
+named arguments and one result; an ICL goal can carry unbound variables
+anywhere, backtrack over several solutions, and be a conjunction the
+Facilitator takes apart. The bridge reports all solutions rather than choosing
+between them, and leaves the richer forms to callers who speak ICL.
+
+The comparison with A2A is the more interesting one, because the two designs
+answer the same question differently. An A2A agent publishes its own card and
+a client reads cards to decide who to ask. In OAA an agent tells one
+Facilitator what it can do and the Facilitator decides; the requester names a
+goal, never an agent.
+
 ## Deliberate non-goals
 
 | Modern convention | Why not | Where it may appear instead |
