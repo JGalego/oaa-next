@@ -62,6 +62,7 @@ initial_solvables([
     solvable(facilitator_data(_FAddr, _FStep, _FStatus, _FName, _FInfo),
              [type(data), bookkeeping(true)], [write(true)]),
     solvable(icl_type(_Sub, _Super), [type(data)], [write(true)]),
+    solvable(agent_listener(_AId2, _ListenAddress), [type(data)], [write(true)]),
     solvable(agent_listener(_AId, _AHost, _APort), [type(data)], [write(true)]),
     solvable(data(_Item, _Data), [type(data)], [write(true)]),
     solvable(can_solve(_Goal, _AgentAddr), [callback(fac:handle_can_solve)], []),
@@ -178,6 +179,12 @@ argv_options(['-oaa_connect', Spec|T], [connect(Addr)|R]) :- !,
 argv_options(['-oaa_name', Name|T], [name(NameAtom)|R]) :- !,
     atom_string(NameAtom, Name),
     argv_options(T, R).
+argv_options(['-use_password', Value|T], [use_password(Bool)|R]) :- !,
+    atom_string(Bool, Value),
+    argv_options(T, R).
+argv_options(['-valid_passwords', Spec|T], [valid_passwords(Passwords)|R]) :- !,
+    icl_parse_term(Spec, Passwords),
+    argv_options(T, R).
 argv_options(['-write_setup_file', File|T], [write_setup_file(FileAtom)|R]) :- !,
     atom_string(FileAtom, File),
     argv_options(T, R).
@@ -212,10 +219,13 @@ parse_address(Spec, Addr) :-
 :- dynamic parent_facilitator/1.        % Address
 
 connect_to_parent(Name, ParentAddr) :-
-    com_connect(parent, [address(ParentAddr)], _),
+    fac_address(MyAddress),
+    oaa_connect(parent, ParentAddr, Name,
+                [other_type(facilitator), other_address(MyAddress)]),
     retractall(parent_facilitator(_)),
     assertz(parent_facilitator(ParentAddr)),
-    refresh_upward_registration(Name).
+    refresh_upward_registration(Name),
+    oaa_ready(false).
 
 fac_is_node :-
     parent_facilitator(_).
@@ -229,7 +239,8 @@ fac_is_node :-
 refresh_upward_registration(Name) :-
     (   parent_facilitator(_)
     ->  aggregate_solvables(Aggregate),
-        com_send(parent, ev_register_solvables(Name, Aggregate, []))
+        com_send(parent, ev_register_solvables(add, Aggregate, Name,
+                                                [if_exists(overwrite)]))
     ;   true
     ).
 
@@ -267,16 +278,18 @@ dedupe_solvables([S|T], [S|R]) :-
 on_connect(ConnId) :-
     next_local_id(LocalId),
     assertz(agent_entry(ConnId, LocalId, unnamed, open, [], [])),
+    public_address(LocalId, AgentAddress),
     (   com_address(ConnId, addr(tcp(Host, _)))
-    ->  oaa_data_add(facilitator, agent_host(LocalId, unnamed, Host), [], _)
+    ->  oaa_data_add(facilitator, agent_host(AgentAddress, unnamed, Host), [], _)
     ;   true
     ).
 
 on_disconnect(ConnId) :-
     (   retract(agent_entry(ConnId, LocalId, _Name, _St, _Sv, _Info))
     ->  %  An agent's facts go with it.  Developer's Guide 7.5.
-        oaa_data_remove(facilitator, agent_data(LocalId,_,_,_,_,_), [do_all(true)], _),
-        oaa_data_remove(facilitator, agent_host(LocalId,_,_), [do_all(true)], _),
+        public_address(LocalId, AgentAddress),
+        oaa_data_remove(facilitator, agent_data(AgentAddress,_,_,_,_,_), [do_all(true)], _),
+        oaa_data_remove(facilitator, agent_host(AgentAddress,_,_), [do_all(true)], _),
         oaa_data_remove_owner(LocalId),
         cancel_outstanding_for(ConnId),
         refresh_upward_registration
@@ -301,8 +314,17 @@ handle(ConnId, Event) :-
     %  the community's traffic.  Developer's Guide 4.3.5.
     oaa_note_event(receive, ConnId, Event),
     fail.
+handle(ConnId, ev_connect(Info)) :- !,
+    handshake_client(ConnId, Info).
+handle(ConnId, ev_register_solvables(Mode, Solvables, Name, Params)) :- !,
+    register_agent_historical(ConnId, Mode, Name, Solvables, Params).
 handle(ConnId, ev_register_solvables(Name, Solvables, Params)) :- !,
     register_agent(ConnId, Name, Solvables, Params).
+handle(ConnId, ev_ready(_Name)) :- !,
+    mark_ready(ConnId).
+handle(ConnId, ev_heartbeat) :- !,
+    com_send(ConnId, ev_heartbeat_reply).
+handle(_ConnId, ev_heartbeat_reply) :- !.
 handle(ConnId, ev_solve(GoalId, Goal, Params)) :- !,
     begin_solve(ConnId, GoalId, Goal, Params).
 handle(parent, ev_solved(UpId, Requestees, Solvers, _G, _P, Solutions)) :-
@@ -321,6 +343,113 @@ handle(ConnId, ev_data_applied(FacGoalId, Ok)) :- !,
     data_provider_replied(ConnId, FacGoalId, Ok).
 handle(_ConnId, _Event).
 
+%   OAA 2.3.2 starts every connection with ev_connect/1.  The response tells
+%   the peer both who the facilitator is and which full OAA address has been
+%   assigned to it.  The local integer remains an implementation detail used
+%   by the reconstructed registry.
+
+handshake_client(ConnId, Info) :-
+    (   memberchk(other_name(Name), Info) -> true ; Name = unknown ),
+    (   memberchk(other_type(Type), Info) -> true ; Type = client ),
+    (   agent_entry(ConnId, LocalId, _, Status, Solvables, OldInfo)
+    ->  true
+    ;   next_local_id(LocalId), Status = open, Solvables = [], OldInfo = []
+    ),
+    (   handshake_rejection(Info, Rejection)
+    ->  com_send(ConnId, ev_connected(exception(Rejection))),
+        com_close(ConnId)
+    ;   duplicate_name_rejected(Name, Info)
+    ->  com_send(ConnId, ev_connected(exception(agent_name_in_use)))
+    ;   replace_duplicate_name(Name, Info),
+        retractall(agent_entry(ConnId, _, _, _, _, _)),
+        assertz(agent_entry(ConnId, LocalId, Name, Status, Solvables, Info)),
+        refresh_agent_data(LocalId, Type, Status, Solvables, Name, OldInfo),
+        fac_address(FacAddress),
+        FacAddress = addr(ProtocolAddress),
+        ClientAddress = addr(ProtocolAddress, LocalId),
+        oaa_name(FacName),
+        Reply = [ other_address(FacAddress),
+                  oaa_address(ClientAddress),
+                  other_id(0),
+                  other_type(facilitator),
+                  other_name(FacName),
+                  other_language(prolog),
+                  other_version([2,3,2]),
+                  other_dialect(swi),
+                  format(default)
+                ],
+        com_send(ConnId, ev_connected(Reply))
+    ).
+
+duplicate_name_rejected(Name, Info) :-
+    memberchk(unique_name(Policy), Info),
+    memberchk(Policy, [true, keep_old]),
+    agent_entry(_, _, Name, ready, _, _).
+
+replace_duplicate_name(Name, Info) :-
+    memberchk(unique_name(keep_new), Info), !,
+    forall(agent_entry(OldConn, _, Name, _, _, _), com_close(OldConn)).
+replace_duplicate_name(_, _).
+
+handshake_rejection(Info, no_password) :-
+    password_required,
+    \+ memberchk(password(_), Info), !.
+handshake_rejection(Info, variable_password) :-
+    password_required,
+    memberchk(password(Password), Info),
+    var(Password), !.
+handshake_rejection(Info, bad_password) :-
+    password_required,
+    memberchk(password(Password), Info),
+    \+ valid_client_password(Password), !.
+
+password_required :- fac_option(use_password(true)).
+
+valid_client_password(Password) :-
+    fac_option(valid_passwords(Passwords)),
+    memberchk(Password, Passwords).
+
+refresh_agent_data(LocalId, Type, Status, Solvables, Name, Info) :-
+    public_address(LocalId, Address),
+    oaa_data_remove(facilitator, agent_data(Address,_,_,_,_,_),
+                    [do_all(true)], _),
+    oaa_data_add(facilitator,
+                 agent_data(Address, Type, Status, Solvables, Name, Info),
+                 [], _).
+
+public_address(0, Address) :- !,
+    fac_address(Address).
+public_address(Address, Address) :-
+    compound(Address),
+    functor(Address, addr, _), !.
+public_address(LocalId, addr(ProtocolAddress, LocalId)) :-
+    fac_address(addr(ProtocolAddress)).
+
+public_addresses(Ids, Addresses) :-
+    maplist(public_address, Ids, Addresses).
+
+register_agent_historical(ConnId, Mode, Name, SolvableSpecs, Params) :-
+    (   agent_entry(ConnId, LocalId, _OldName, Status, Current, Info)
+    ->  true
+    ;   next_local_id(LocalId), Status = open, Current = [], Info = []
+    ),
+    normalize_incoming(SolvableSpecs, Incoming),
+    apply_declare(Mode, Current, Incoming, Updated),
+    retractall(agent_entry(ConnId, _, _, _, _, _)),
+    assertz(agent_entry(ConnId, LocalId, Name, Status, Updated, Info)),
+    refresh_agent_data(LocalId, client, Status, Updated, Name, Info),
+    record_listener(LocalId, Params),
+    refresh_upward_registration.
+
+mark_ready(ConnId) :-
+    (   retract(agent_entry(ConnId, LocalId, Name, _Status, Solvables, Info))
+    ->  assertz(agent_entry(ConnId, LocalId, Name, ready, Solvables, Info)),
+        ( memberchk(other_type(Type), Info) -> true ; Type = client ),
+        refresh_agent_data(LocalId, Type, ready, Solvables, Name, Info),
+        refresh_upward_registration
+    ;   true
+    ).
+
 %   Registration is data maintenance on agent_data/6.  Developer's Guide
 %   5.1.6; facilitator.md section 2.
 
@@ -331,10 +460,7 @@ register_agent(ConnId, Name, SolvableSpecs, Params) :-
     ),
     normalize_incoming(SolvableSpecs, Solvables),
     assertz(agent_entry(ConnId, LocalId, Name, ready, Solvables, Info)),
-    oaa_data_remove(facilitator, agent_data(LocalId,_,_,_,_,_), [do_all(true)], _),
-    oaa_data_add(facilitator,
-                 agent_data(LocalId, client, ready, Solvables, Name, Info),
-                 [], _),
+    refresh_agent_data(LocalId, client, ready, Solvables, Name, Info),
     record_listener(LocalId, Params),
     com_address(ConnId, Address),
     com_send(ConnId, ev_registered(LocalId, Address)),
@@ -348,8 +474,13 @@ register_agent(ConnId, Name, SolvableSpecs, Params) :-
 record_listener(LocalId, Params) :-
     oaa_data_remove(facilitator, agent_listener(LocalId, _, _),
                     [do_all(true)], _),
+    public_address(LocalId, Address),
+    oaa_data_remove(facilitator, agent_listener(Address, _),
+                    [do_all(true)], _),
     (   icl_get_param_value(listener(tcp(Host, Port)), Params)
-    ->  oaa_data_add(facilitator, agent_listener(LocalId, Host, Port), [], _)
+    ->  oaa_data_add(facilitator, agent_listener(LocalId, Host, Port), [], _),
+        oaa_data_add(facilitator,
+                     agent_listener(Address, addr(tcp(Host, Port))), [], _)
     ;   true
     ).
 
@@ -365,21 +496,20 @@ normalize_incoming(Specs, Solvables) :-
 %   facilitator's clients -- which is how OAA supports a blackboard style of
 %   communication.  Developer's Guide 5.2 and 7.7.
 
-post_declare(_ConnId, Mode, Specs, Params) :-
+post_declare(ConnId, Mode, Specs, Params) :-
     icl_get_param_value(address(A), Params),
     memberchk(A, [parent, facilitator]), !,
-    declare_on_facilitator(Mode, Specs).
-post_declare(ConnId, Mode, Specs, _Params) :-
+    declare_on_facilitator(Mode, Specs),
+    com_send(ConnId, ev_reply_declared(Mode, Specs, Params, Specs)).
+post_declare(ConnId, Mode, Specs, Params) :-
     (   agent_entry(ConnId, LocalId, Name, Status, Current, Info)
     ->  normalize_incoming(Specs, Incoming),
         apply_declare(Mode, Current, Incoming, Updated),
         retract(agent_entry(ConnId, LocalId, Name, Status, Current, Info)),
         assertz(agent_entry(ConnId, LocalId, Name, Status, Updated, Info)),
-        oaa_data_remove(facilitator, agent_data(LocalId,_,_,_,_,_), [do_all(true)], _),
-        oaa_data_add(facilitator,
-                     agent_data(LocalId, client, Status, Updated, Name, Info),
-                     [], _),
-        refresh_upward_registration
+        refresh_agent_data(LocalId, client, Status, Updated, Name, Info),
+        refresh_upward_registration,
+        com_send(ConnId, ev_reply_declared(Mode, Specs, Params, Incoming))
     ;   true
     ).
 
@@ -714,8 +844,11 @@ start_request(ReplyTo, RequesterId, Goal, Params, Mode, Selected, Batch) :-
     ).
 
 send_request(FacGoalId, Goal, Params, candidate(Id, Solvable, _U)) :-
+    outstanding(request(FacGoalId, _, RequesterId, _, _, _, _, _, _, _, _)),
+    public_address(RequesterId, RequesterAddress),
+    icl_param_merge([from(RequesterAddress)], Params, RoutedParams),
     (   Id =:= 0
-    ->  solve_on_facilitator(FacGoalId, Goal, Params)
+    ->  solve_on_facilitator(FacGoalId, Goal, RoutedParams)
     ;   agent_entry(ConnId, Id, _, _, _, _),
         %  The event a provider receives is the result of unifying the goal
         %  with the solvable's template.  Developer's Guide 5.1.2.
@@ -723,7 +856,7 @@ send_request(FacGoalId, Goal, Params, candidate(Id, Solvable, _U)) :-
         ->  true
         ;   Event = Goal
         ),
-        fac_send(ConnId, ev_solve(FacGoalId, Event, Params))
+        fac_send(ConnId, ev_solve(FacGoalId, Event, RoutedParams))
     ).
 
 %   Outgoing events are offered to the comm triggers as well, so a monitor
@@ -840,8 +973,10 @@ finish_solve(ConnId, GoalId, Goal, Params, Requestees, Solvers, Solutions0) :-
     (   icl_get_param_value(reply(none), Params)
     ->  true
     ;   reply_goal(Goal, Params, ReplyGoal),
+        public_addresses(Requestees, RequesteeAddresses),
+        public_addresses(Solvers, SolverAddresses),
         fac_send(ConnId,
-                 ev_solved(GoalId, Requestees, Solvers, ReplyGoal,
+                 ev_solved(GoalId, RequesteeAddresses, SolverAddresses, ReplyGoal,
                            Params, Solutions))
     ).
 
@@ -984,10 +1119,11 @@ update_data(ConnId, GoalId, Mode, Payload, Params) :-
     (   icl_get_param_value(reply(none), Params)
     ->  true
     ;   %  Six arguments, matching the shape SRI's own conformance tests
-        %  expect: ev_data_updated(GoalId, Mode, Clause, Requestees, Solvers,
-        %  Params).  See tests/compatibility/.
-        com_send(ConnId, ev_data_updated(GoalId, Mode, Payload,
-                                         Requestees, Requestees, Params))
+        %  expect: ev_data_updated(GoalId, Mode, Clause, Params, Requestees,
+        %  Updaters).  See tests/compatibility/.
+        public_addresses(Requestees, Addresses),
+        com_send(ConnId, ev_data_updated(GoalId, Mode, Payload, Params,
+                         Addresses, Addresses))
     ).
 
 probe_of(replace, replace(C1, _), C1) :- !.
@@ -1006,7 +1142,14 @@ update_trigger(ConnId, GoalId, Mode, Type, Cond, Action, Params) :-
     include(trigger_capable(Type, Cond), Selected, Targets),
     forall(member(candidate(Id, _, _), Targets),
            route_trigger_op(Id, GoalId, Mode, Type, Cond, Action, Params,
-                            RequesterId)).
+                            RequesterId)),
+    (   icl_get_param_value(reply(none), Params)
+    ->  true
+    ;   findall(Id, member(candidate(Id, _, _), Targets), Requestees),
+        public_addresses(Requestees, Addresses),
+        com_send(ConnId, ev_trigger_updated(GoalId, Mode, Type, Cond, Action,
+                                            Params, Addresses, Addresses))
+    ).
 
 trigger_capable(data, _Cond, candidate(_, S, _)) :- !,
     solvable_type(S, data).
@@ -1020,7 +1163,8 @@ route_trigger_op(0, _GoalId, Mode, Type, Cond, Action, Params, _Owner) :- !,
     ;   oaa_remove_trigger(Type, Cond, Action, [address(self)])
     ).
 route_trigger_op(Id, GoalId, Mode, Type, Cond, Action, Params, Owner) :-
-    icl_param_merge([from(Owner)], Params, P2),
+    public_address(Owner, OwnerAddress),
+    icl_param_merge([from(OwnerAddress)], Params, P2),
     (   agent_entry(Target, Id, _, _, _, _)
     ->  com_send(Target, ev_update_trigger(GoalId, Mode, Type, Cond, Action, P2))
     ;   true
@@ -1028,11 +1172,13 @@ route_trigger_op(Id, GoalId, Mode, Type, Cond, Action, Params, Owner) :-
 
 route_data_op(0, _GoalId, Mode, Payload, Params, ConnId) :- !,
     requester_id(ConnId, Owner),
-    icl_param_merge([from(Owner)], Params, P2),
+    public_address(Owner, OwnerAddress),
+    icl_param_merge([from(OwnerAddress)], Params, P2),
     oaa_agent:apply_data_op_locally(Mode, Payload, P2, _).
 route_data_op(Id, GoalId, Mode, Payload, Params, ConnId) :-
     requester_id(ConnId, Owner),
-    icl_param_merge([from(Owner)], Params, P2),
+    public_address(Owner, OwnerAddress),
+    icl_param_merge([from(OwnerAddress)], Params, P2),
     (   agent_entry(Target, Id, _, _, _, _)
     ->  com_send(Target, ev_update_data(GoalId, Mode, Payload, P2))
     ;   true
@@ -1055,9 +1201,10 @@ handle_can_solve(can_solve(Goal, AgentAddr), _Params) :-
     fac_candidates(Goal, Registry, Candidates),
     fac_order(Candidates, Ordered),
     member(candidate(Id, _, _), Ordered),
-    AgentAddr = Id.
+    public_address(Id, AgentAddr).
 
-handle_agent_version(agent_version(Id, Language, Version), _Params) :-
+handle_agent_version(agent_version(Address, Language, Version), _Params) :-
+    address_id(Address, 0, Id),
     agent_entry(_, Id, _, _, _, Info),
-    (   memberchk(language(Language), Info) -> true ; Language = unknown ),
-    (   memberchk(version(Version), Info) -> true ; Version = unknown ).
+    (   memberchk(other_language(Language), Info) -> true ; Language = unknown ),
+    (   memberchk(other_version(Version), Info) -> true ; Version = unknown ).

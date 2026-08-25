@@ -51,7 +51,7 @@ passed every test written against documented behaviour, because none of
 those tests exercised the wire format directly. SRI's own OTML conformance
 corpus, recovered under `src/oaatest/` in the distribution and previously
 unread, settles it: `samples/test3/parallel.otml` shows six arguments,
-`ev_data_updated(GoalId, Mode, Clause, Requestees, Solvers, Params)`. Fixed
+`ev_data_updated(GoalId, Mode, Clause, Params, Requestees, Updaters)`. Fixed
 in `fac.pl`; the shape is now pinned by
 `tests/compatibility/test_conformance.pl`, which transcribes cases from that
 corpus against a live community. The documented interface tests all passed,

@@ -18,11 +18,37 @@
             com_connections/1,          % -ConnIds
             com_address/2,              % ?ConnId, ?Address
             com_is_listener/1,          % ?ConnId
-            com_frame/3                 % +Codes, -TermCodes, -Rest
+            com_frame/3,                % +Codes, -TermCodes, -Rest
+
+            com_StandardizeAddress/2,
+            com_Connect/3,
+            com_Connect/4,
+            com_Disconnect/1,
+            com_DisconnectWithFailure/1,
+            com_ShutdownAll/0,
+            com_Shutdown/1,
+            com_TcpShutdown/1,
+            com_Connected/4,
+            com_ReportConnections/1,
+            com_ListenAt/3,
+            com_ListenAt/4,
+            com_SendData/2,
+            com_SelectEvent/2,
+            com_AddInfo/2,
+            com_UpdateInfo/2,
+            com_GetInfo/2,
+            com_GetAllInfo/2,
+            com_CancelWakeup/2,
+            com_ScheduleWakeup/2,
+            com_RecordAddressForId/2,
+            com_AddressForId/2,
+            com_write_term/1
           ]).
 
 :- use_module(library(socket)).
+:- use_module(library(time)).
 :- use_module('../icl/icl_term').
+:- use_module('../runtime/oaa_config').
 
 /** <module> The com_ transport API
 
@@ -42,6 +68,8 @@ grammars' multi-term entry point exists to read.
 :- dynamic conn_buffer/2.       % ConnId, Codes
 :- dynamic conn_address/2.      % ConnId, Address
 :- dynamic conn_counter/1.
+:- dynamic compat_info/2.      % ConnId, historical com_GetInfo element
+:- dynamic compat_alarm/3.     % Time, Event, AlarmId
 
 conn_counter(0).
 
@@ -69,7 +97,10 @@ com_connect(ConnId, Params, Address) :-
     set_buffer(ConnId, []),
     Address = addr(tcp(Host, Port)),
     retractall(conn_address(ConnId, _)),
-    assertz(conn_address(ConnId, Address)).
+    assertz(conn_address(ConnId, Address)),
+    retractall(compat_info(ConnId, _)),
+    forall(member(I, [status(connected), type(client), protocol(tcp),
+                      other_address(Address)]), assertz(compat_info(ConnId, I))).
 
 %!  com_listen_at(+ConnId, +Params, -Address) is det.
 %
@@ -101,7 +132,10 @@ com_listen_at(ConnId, Params, Address) :-
     assertz(listener_socket(ConnId, Socket)),
     Address = addr(tcp(Host, Port)),
     retractall(conn_address(ConnId, _)),
-    assertz(conn_address(ConnId, Address)).
+    assertz(conn_address(ConnId, Address)),
+    retractall(compat_info(ConnId, _)),
+    forall(member(I, [status(connected), type(server), protocol(tcp),
+                      oaa_address(Address)]), assertz(compat_info(ConnId, I))).
 
 %!  com_accept(+ListenerId, -ConnId) is det.
 %
@@ -119,7 +153,9 @@ com_accept(ListenerId, ConnId) :-
     assertz(connection(ConnId, peer, In, Out)),
     set_buffer(ConnId, []),
     peer_address(Peer, Address),
-    assertz(conn_address(ConnId, Address)).
+    assertz(conn_address(ConnId, Address)),
+    forall(member(I, [status(connected), type(peer), protocol(tcp),
+                      other_address(Address)]), assertz(compat_info(ConnId, I))).
 
 peer_address(Host:Port, addr(tcp(Host, Port))) :- !.
 peer_address(ip(A,B,C,D), addr(tcp(Host, 0))) :- !,
@@ -141,9 +177,29 @@ next_conn_id(ConnId) :-
 com_send(ConnId, Term) :-
     (   connection(ConnId, _, _, Out),
         Out \== none
-    ->  catch(icl_write_event(Out, Term), E, throw(com_error(ConnId, E)))
+    ->  wire_encode(Term, WireTerm),
+        catch(icl_write_event(Out, WireTerm), E, throw(com_error(ConnId, E)))
     ;   throw(com_error(ConnId, no_such_connection))
     ).
+
+%   OAA 2.x puts conversational content inside event(Content, Params).  Keep
+%   that historical representation on the TCP stream while exposing Content
+%   to the reconstructed runtime, whose handlers already receive the source
+%   connection separately.  Non-OAA terms remain untouched so com_ is still
+%   a general term transport.
+
+wire_encode(event(Content, Params), event(Content, Params)) :- !.
+wire_encode(Term, event(Term, [])) :-
+    oaa_event_content(Term), !.
+wire_encode(Term, Term).
+
+wire_decode(event(Content, _Params), Content) :- !.
+wire_decode(Term, Term).
+
+oaa_event_content(Term) :-
+    compound(Term),
+    functor(Term, Name, _),
+    atom_concat(ev_, _, Name).
 
 % --------------------------------------------------------------------- read
 
@@ -153,8 +209,8 @@ com_send(ConnId, Term) :-
 %   the peer closes.
 
 com_read(ConnId, Term) :-
-    (   take_buffered(ConnId, Term)
-    ->  true
+    (   take_buffered(ConnId, Wire)
+    ->  wire_decode(Wire, Term)
     ;   fill(ConnId, infinite),
         com_read(ConnId, Term)
     ).
@@ -169,7 +225,8 @@ com_read_pending(ConnId, Terms) :-
     drain(ConnId, Terms).
 
 drain(ConnId, [T|Ts]) :-
-    take_buffered(ConnId, T), !,
+    take_buffered(ConnId, Wire), !,
+    wire_decode(Wire, T),
     drain(ConnId, Ts).
 drain(_, []).
 
@@ -297,7 +354,8 @@ com_close(ConnId) :-
     ;   true
     ),
     retractall(conn_buffer(ConnId, _)),
-    retractall(conn_address(ConnId, _)).
+    retractall(conn_address(ConnId, _)),
+    retractall(compat_info(ConnId, _)).
 
 com_close_all :-
     forall(connection(Id, _, _, _), com_close(Id)),
@@ -316,3 +374,104 @@ com_address(ConnId, Address) :-
 
 com_is_listener(ConnId) :-
     connection(ConnId, listener, _, _).
+
+% ------------------------------------------------ OAA 2.3.2 com_ compatibility
+
+com_StandardizeAddress(tcp(Host, Port), tcp(Host, Port)).
+
+com_Connect(ConnectionId, Params, Address) :-
+    com_Connect(ConnectionId, Params, Address, _).
+
+com_Connect(ConnectionId, Params, Address0, ActualAddress) :-
+    compat_connect_address(Address0, Address),
+    com_connect(ConnectionId, [address(Address)|Params], addr(ActualAddress)).
+
+compat_connect_address(Address, Address) :- nonvar(Address), !.
+compat_connect_address(_Address, Address) :-
+    oaa_facilitator_address(Address).
+
+com_Disconnect(ConnectionId) :- com_close(ConnectionId).
+com_DisconnectWithFailure(ConnectionId) :- com_close(ConnectionId).
+com_ShutdownAll :- com_close_all.
+com_Shutdown(ConnectionId) :- com_close(ConnectionId).
+com_TcpShutdown(ConnectionId) :- com_close(ConnectionId).
+
+com_Connected(ConnectionId, tcp, Type, Info) :-
+    connection(ConnectionId, Kind, _, _),
+    compat_connection_type(Kind, Type),
+    com_GetAllInfo(ConnectionId, Info).
+
+compat_connection_type(listener, server) :- !.
+compat_connection_type(client, client) :- !.
+compat_connection_type(peer, peer).
+
+com_ReportConnections(Connections) :-
+    findall(connection(Id, tcp, Type, Info),
+            com_Connected(Id, tcp, Type, Info), Connections).
+
+com_ListenAt(ConnectionId, Params, RequestedAddress) :-
+    com_ListenAt(ConnectionId, Params, RequestedAddress, _).
+
+com_ListenAt(ConnectionId, Params, RequestedAddress, ActualAddress) :-
+    com_listen_at(ConnectionId, [address(RequestedAddress)|Params],
+                  addr(ActualAddress)).
+
+com_SendData(ConnectionId, Term) :- com_send(ConnectionId, Term).
+
+com_SelectEvent(Timeout, Event) :-
+    (   retract(compat_wakeup(Event))
+    ->  true
+    ;   com_connections(Connections),
+        com_poll(Connections, Timeout, Ready),
+        (   Ready = [ConnectionId|_]
+        ->  (   com_is_listener(ConnectionId)
+            ->  com_accept(ConnectionId, NewId), Event = connected(NewId)
+            ;   catch(com_read(ConnectionId, Term), com_eof(ConnectionId),
+                      Term = end_of_file(ConnectionId)),
+                Event = term(ConnectionId, Term)
+            )
+        ;   Event = timeout
+        )
+    ).
+
+com_AddInfo(ConnectionId, Info) :-
+    (   is_list(Info)
+    ->  forall(member(I, Info), com_AddInfo(ConnectionId, I))
+    ;   assertz(compat_info(ConnectionId, Info))
+    ).
+
+com_UpdateInfo(ConnectionId, Info) :-
+    (   is_list(Info)
+    ->  forall(member(I, Info), com_UpdateInfo(ConnectionId, I))
+    ;   functor(Info, Name, Arity),
+        functor(Probe, Name, Arity),
+        retractall(compat_info(ConnectionId, Probe)),
+        assertz(compat_info(ConnectionId, Info))
+    ).
+
+com_GetInfo(ConnectionId, Info) :- compat_info(ConnectionId, Info).
+
+com_GetAllInfo(ConnectionId, Info) :-
+    findall(I, compat_info(ConnectionId, I), Info).
+
+:- dynamic compat_wakeup/1.
+
+com_ScheduleWakeup(Time, Event) :-
+    get_time(Now),
+    ( number(Time), Time > Now -> Delay is Time - Now ; Delay = 0 ),
+    alarm(Delay, assertz(compat_wakeup(wakeup(Event))), AlarmId,
+          [remove(true)]),
+    assertz(compat_alarm(Time, Event, AlarmId)).
+
+com_CancelWakeup(Time, Event) :-
+    retract(compat_alarm(Time, Event, AlarmId)),
+    remove_alarm(AlarmId).
+
+com_RecordAddressForId(ConnectionId, Address) :-
+    retractall(conn_address(ConnectionId, _)),
+    assertz(conn_address(ConnectionId, Address)),
+    com_UpdateInfo(ConnectionId, other_address(Address)).
+
+com_AddressForId(ConnectionId, Address) :- com_address(ConnectionId, Address).
+
+com_write_term(Term) :- icl_write(Term).

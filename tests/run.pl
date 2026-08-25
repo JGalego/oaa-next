@@ -6,6 +6,12 @@
 
 :- initialization(main, main).
 
+:- multifile user:message_hook/3.
+
+user:message_hook(plunit(begin(Unit:Test, _FileLine, _STO)), silent, _) :-
+    format(user_error, '~w:~w~n', [Unit, Test]).
+user:message_hook(plunit(progress(_Unit, _Test, _Result)), information, _).
+
 suite('tests/icl/test_icl.pl').
 suite('tests/agents/test_solvable.pl').
 suite('tests/agents/test_trigger.pl').
@@ -29,6 +35,7 @@ suite('tests/llm/test_office_ui.pl').
 suite('tests/interop/test_interop.pl').
 suite('tests/interop/test_mcp_live.pl').
 suite('tests/compatibility/test_conformance.pl').
+suite('tests/compatibility/test_classic_api.pl').
 
 main(_Argv) :-
     forall(suite(F), ensure_loaded(F)),

@@ -11,6 +11,7 @@ implementing any of that yourself.
 | Module | Responsibility |
 |---|---|
 | `oaa_agent.pl` | Connection, registration, `oaa_Solve`, data maintenance and event dispatch; the library surface most agent code calls |
+| `oaa.pl` | OAA 2.3.2 mixed-case source-compatibility facade, including the complete historical public export surface |
 | `oaa_solvable.pl` | Solvable normalization, matching, permission and parameter lookup |
 | `oaa_data.pl` | The data store behind data solvables |
 | `oaa_trigger.pl` | Trigger installation, condition matching, firing |
@@ -79,17 +80,25 @@ not in the library module that stored it.
 
 ## Connecting and registering, the two steps
 
-`com_Connect(parent, [], Address)` opens the transport connection.
-`oaa_Register(ConnId, Name, Solvables, Params)` declares what the agent
-offers over it. Keeping these separate (rather than one combined call)
+`com_Connect(parent, [], Address, ActualAddress)` opens the transport
+connection; `oaa_Register(ConnId, Name, Solvables, Params)` performs the
+historical handshake if `com_Connect` was called directly, then declares what
+the agent offers. The handshake exchanges `ev_connect/1` and `ev_connected/1`
+inside the wire's `event/2` envelope and assigns the client's full OAA address.
+Keeping connection and registration separate (rather than one combined call)
 preserves the historical two-step (Developer's Guide §9.1) and allows a
 direct-connect listener to be opened between them.
+
+New code may instead use lower-case `oaa_agent_start/3`; it performs the same
+handshake, registration, and `ev_ready/1` transition. See
+[`classic-compatibility.md`](classic-compatibility.md) for the complete
+historical surface and compatibility boundary.
 
 ## The event loop
 
 `oaa_MainLoop` polls the queue of arrived events and dispatches: events the
 library itself understands (`ev_solve`, `ev_update_data`,
-`ev_update_trigger`, `ev_registered`, …) are handled without the agent ever
+`ev_update_trigger`, `ev_connected`, `ev_reply_declared`, …) are handled without the agent ever
 seeing them; anything else reaches `app_do_event`. Events carry a priority
 (1–10, default 5); an event with priority above the one currently being
 waited on interrupts, everything else queues for the outer loop

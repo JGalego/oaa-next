@@ -63,9 +63,10 @@ Both are consulted through the ordinary reply-tag mechanism used for any
 delegated goal. A facilitator therefore does not deadlock on an agent that
 is itself waiting on the facilitator (see
 [`../../research/implementation-notes/facilitator.md`](../../research/implementation-notes/facilitator.md)
-§5a). `plan_query` and `execute_plan`, which would let a meta-agent take
-over compound-goal routing entirely, remain deferred (see
-[`../../research/compatibility-matrix.md`](../../research/compatibility-matrix.md)).
+§5a). Some design material also describes `plan_query` and `execute_plan`,
+which would let a meta-agent take over compound-goal routing entirely. A
+source audit found that the recovered 2.3.2 Facilitator only dispatches
+`lookup` and `prioritize`; those two therefore define implementation parity.
 
 ## Reply tags and continuations
 

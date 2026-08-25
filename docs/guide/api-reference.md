@@ -5,6 +5,25 @@ declared modes (`+` input, `-` output, `?` either). Prose explanation of
 *why* lives on the topic pages this reference links back to; this page is
 for looking up a name.
 
+## `src/agents/oaa.pl` — OAA 2.3.2 compatibility facade
+
+This module preserves the historical public names and arities. See
+[`classic-compatibility.md`](classic-compatibility.md).
+
+| Area | Predicates |
+|---|---|
+| ICL | `icl_GetParamValue/2`, `icl_GetNestedParamValue/3`, `icl_GetPermValue/2`, `icl_BasicGoal/1`, `icl_GoalComponents/4`, `icl_ConsistentParams/2`, `icl_BuiltIn/1`, `icl_ConvertSolvables/2` |
+| Lifecycle | `oaa_LibraryVersion/1`, `oaa_Connect/4`, `oaa_SetupCommunication/1`, `oaa_Register/4`, `oaa_Disconnect/2`, `oaa_Ready/1`, `oaa_MainLoop/1`, `oaa_SetTimeout/1` |
+| Callbacks/events | `oaa_RegisterCallback/2`, `oaa_ResolveVariables/1`, `oaa_GetEvent/4`, `oaa_ProcessEvent/2`, `oaa_Interpret/2`, `oaa_PostEvent/2` |
+| Solving | `oaa_Solve/1,2`, `oaa_CanSolve/2`, `oaa_Version/3`, `oaa_Ping/3` |
+| Declarations | `oaa_Declare/5`, `oaa_Undeclare/3`, `oaa_Redeclare/3` |
+| Data | `oaa_AddData/2`, `oaa_RemoveData/2`, `oaa_ReplaceData/3`, `oaa_LoadData/2`, `oaa_SaveData/2` |
+| Triggers | `oaa_CheckTriggers/3`, `oaa_AddTrigger/4`, `oaa_RemoveTrigger/4` |
+| Delayed solutions | `oaa_DelaySolution/1`, `oaa_ReturnDelayedSolutions/2`, `oaa_AddDelayedContextParams/3` |
+| Cache | `oaa_InCache/2`, `oaa_AddToCache/2`, `oaa_ClearCache/0` |
+| Diagnostics | `oaa_TraceMsg/2`, `oaa_ComTraceMsg/3`, `oaa_Inform/3` |
+| Identity/sequencing | `oaa_Address/3`, `oaa_PrimaryAddress/1`, `oaa_Name/1`, `oaa_LastSeqNum/2`, `oaa_SupportsSequenceNumbers/1`, `oaa_SeqNumLessThan/2` |
+
 ## `src/icl/icl_term.pl` — terms
 
 | Predicate | Signature | Notes |
@@ -74,7 +93,11 @@ See [`capability-registration.md`](capability-registration.md).
 | Predicate | Signature | Notes |
 |---|---|---|
 | `oaa_connect/2` | `+Params, -Address` | |
+| `oaa_connect/4` | `+ConnId, +Address, +Name, +Params` | Connect and perform the OAA 2.3.2 handshake |
+| `oaa_handshake/3` | `+ConnId, +Name, +Params` | Handshake an existing transport connection |
 | `oaa_register/4` | `+ConnId, +Name, +Solvables, +Params` | |
+| `oaa_ready/1` | `+ShouldPrint` | Send the historical ready transition |
+| `oaa_disconnect/2` | `+ConnId, +Params` | Close and clear connection metadata |
 | `oaa_declare/2`, `oaa_undeclare/2` | `+Solvables, +Params` | |
 | `oaa_redeclare/3` | `+Solvable, +NewSolvable, +Params` | Atomic swap |
 | `oaa_solvables/1` | `-Solvables` | This agent's own declarations |
@@ -201,6 +224,16 @@ See [`delegation.md`](delegation.md), [`facilitator.md`](facilitator.md).
 | `com_address/2` | `?ConnId, ?Address` | |
 | `com_is_listener/1` | `?ConnId` | |
 | `com_frame/3` | `+Codes, -TermCodes, -Rest` | Period-framing with quote-state tracking |
+
+The same module exports the historical aliases:
+
+| Area | Predicates |
+|---|---|
+| Address/connect | `com_StandardizeAddress/2`, `com_Connect/3,4`, `com_Connected/4`, `com_ListenAt/3,4` |
+| Send/select | `com_SendData/2`, `com_SelectEvent/2`, `com_write_term/1` |
+| Connection metadata | `com_AddInfo/2`, `com_UpdateInfo/2`, `com_GetInfo/2`, `com_GetAllInfo/2`, `com_RecordAddressForId/2`, `com_AddressForId/2`, `com_ReportConnections/1` |
+| Shutdown | `com_Disconnect/1`, `com_DisconnectWithFailure/1`, `com_ShutdownAll/0`, `com_Shutdown/1`, `com_TcpShutdown/1` |
+| Wakeups | `com_ScheduleWakeup/2`, `com_CancelWakeup/2` |
 
 ## `src/runtime/oaa_event.pl` — the event loop
 

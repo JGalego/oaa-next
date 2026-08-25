@@ -25,20 +25,27 @@ and kept outside `src/` core, with the isolation claim enforced by
 `tests/llm/test_isolation.pl` rather than asserted. The test suite passes,
 and no part of the core has any LLM dependency.
 
-Left undone on purpose, and recorded as `deferred` below rather than quietly
-dropped:
+The classic compatibility target is now explicit: behavioral and source-level
+parity for the OAA 2.3.2 Prolog/TCP surface. The historical mixed-case API is
+provided by `src/agents/oaa.pl`; TCP uses the `event/2` envelope and
+`ev_connect` / `ev_connected` lifecycle; the Facilitator exposes full OAA
+addresses and accepts an original-style client. C/Java/.NET/WebL bindings,
+historical binary ABIs, Swing user interfaces, and OAA 1.x translations are
+distribution-level non-goals rather than claims hidden inside “core parity”.
+See `docs/guide/classic-compatibility.md`.
 
-| Deferred | Why |
-|---|---|
-| Time triggers | Never in the historical libraries either — they need the separate Alarm agent |
-| `plan_query`/`execute_plan` meta-agents | The `prioritize` and `lookup` hooks are implemented; refining or taking over compound-goal routing is not |
+Time triggers use the separate Alarm agent exactly as the historical library
+required. A source audit also corrected an earlier interpretation of the
+meta-agent design: recovered OAA 2.3.2 `fac.pl` executes only `lookup` and
+`prioritize`. `plan_query` and `execute_plan` occur in broader design
+material, but are not deferred executable behavior from this target release.
 
 Findings from the implementation itself live in the notes rather than here:
 `can_solve` with a wholly unbound goal cannot match a solvable declaring
 required inputs (facilitator.md §8a), ICL's operator set is its own, smaller
 than Prolog's and with its own precedence order (icl.md §1), and the wire
 reply to a data update carries six arguments —
-`ev_data_updated(GoalId, Mode, Clause, Requestees, Solvers, Params)` — as
+`ev_data_updated(GoalId, Mode, Clause, Params, Requestees, Updaters)` — as
 settled from SRI's own OTML conformance corpus
 (`tests/compatibility/test_conformance.pl`).
 
@@ -82,6 +89,10 @@ an equivalent seam rather than assume a single Prolog.
 | Agent connection | `com_Connect(parent, [], _Address)` then `oaa_Register(parent, Name, Solvables, Params)` | DG §9.1 | Same two-step | reconstructed |
 | Event loop | `oaa_MainLoop`; polls an event queue; builtin events handled by the library, user events dispatched to callbacks | DG §4.4 | Same | reconstructed |
 | Startup ordering | Each facilitator must be listening before its clients connect | DG §3.4 | Same | reconstructed |
+| Prolog public API | Mixed-case predicates and historical arities exported by module `oaa` | SRC `oaa.pl` export list | Compatibility facade exports the historical surface; lower-case API remains for new code | reconstructed |
+| Connection handshake | `event(ev_connect(Info), [])` → `event(ev_connected(Info), [])`; address assigned before registration | SRC | Same envelope, metadata, password and unique-name rejection | reconstructed |
+| Registration lifecycle | `ev_register_solvables/4`, then `ev_ready/1`; status changes `open` → `ready` | SRC | Same; transitional `ev_registered/2` is accepted only for early oaa-next peers | reconstructed |
+| Public addresses | Facilitator `addr(tcp(Host,Port))`; client `addr(tcp(Host,Port),LocalId)` | DG §4.3.7, SRC | Same externally; integer IDs remain internal | reconstructed |
 
 ## ICL — Interagent Communication Language
 
@@ -173,15 +184,15 @@ an equivalent seam rather than assume a single Prolog.
 | Direct connect | `direct_connect(true)` bypasses the facilitator for message flow while the facilitator still selects the provider; requires a provider listener socket registered before `oaa_Register`; single-provider, single-facilitator, `oaa_Solve` only; `time_limit` and `parallel_ok` ignored | DG §10.1 | Same, including the limitations | reconstructed |
 | Meta-agents: `prioritize` | Given the Facilitator's sorted candidate list, return a reordering | DG §5.6 | Consulted as an ordinary dispatch answered to a `meta(...)` reply tag | reconstructed |
 | Meta-agents: `lookup` | Given a goal nothing can solve, find and start an agent that can; selection is repeated on success | DG §5.6 | Same | reconstructed |
-| Meta-agents: `plan_query`, `execute_plan` | Refine or take over the Facilitator's routing plan for a compound goal | DG §5.6 | Not yet | deferred |
+| Meta-agents beyond `lookup`/`prioritize` | Design material describes `plan_query` and `execute_plan`, but recovered 2.3.2 `fac.pl` dispatches only `(Type = prioritize ; Type = lookup)` | DG §5.6, SRC `fac.pl` meta handlers | No invented wire behavior; executable 2.3.2 hook set is complete | reconstructed |
 | Compound goals | Facilitator decomposes a compound request and delegates the subrequests individually | DG §4.3 | Breadth-first branch walk, driven one dispatch at a time so the Facilitator never blocks on an agent | reconstructed |
 | Conjunction join | Variables shared between conjuncts bind the later ones from the earlier ones' solutions | SRC, logic-programming semantics | Same; branches copy so siblings stay independent | reconstructed |
 | Nested parameter lists | A subgoal may carry its own address and parameters inside a compound goal | DG §6.15, Reference Manual | `Address:Goal::Params` disassembly per `oaa_DisassembleGoal` | reconstructed |
 
 Meta-agents are where an LLM belongs. The `prioritize` hook reorders the
 facilitator's candidate solver list; `lookup` finds and starts an agent when
-no local one matches; `plan_query` refines a routing plan. These are the
-decisions an LLM could improve, and OAA already defined them as optional,
+no local one matches. These are the executable 2.3.2 decisions an LLM can
+improve, and OAA defined them as optional,
 external and fallible: the facilitator proceeds with its deterministic default
 when no meta-agent returns anything usable. An LLM meta-agent is therefore an
 additive extension that changes nothing about the core, which is the invariant
@@ -235,7 +246,7 @@ goal, never an agent.
 | Modern convention | Why not | Where it may appear instead |
 |---|---|---|
 | JSON as the interagent format | Loses unification, variables and the facilitator's ability to decompose compound goals | Interoperability adapter |
-| LLM as the router | Replaces a deterministic mechanism with a stochastic one | Optional `prioritize`/`plan_query` meta-agent |
+| LLM as the router | Replaces a deterministic mechanism with a stochastic one | Optional executable `prioritize`/`lookup` meta-agent hooks |
 | Vector similarity for capability matching | OAA matching is unification, and is exact | Optional meta-agent advice |
 | MCP or A2A as the internal protocol | ICL is the architecture, not an implementation detail | Bridges, clearly separated |
 | Service registry in place of the Facilitator | A registry does not delegate, decompose, collect or route | — |

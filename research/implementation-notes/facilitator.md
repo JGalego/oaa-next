@@ -152,35 +152,36 @@ hard at the same time.
 
 ## 6. Compound goals
 
-`compound.pl` handles goals that are not atomic requests. When compiled for
-compound goals, the Facilitator produces a **routing plan** for a delegated
-request using its strategies and metadata, then interprets that plan, invoking
-and coordinating the agents it names. Two meta hooks bracket this:
-`plan_query` lets a meta-agent improve the plan the Facilitator generated, and
-`execute_plan` lets a client meta-agent interpret the plan instead of the
-Facilitator — explicitly motivated in the Developer's Guide by wanting to avoid
-the Facilitator being a single point of failure and a bottleneck for all
-execution state.
+`compound.pl` handles goals that are not atomic requests. oaa-next implements
+this as a breadth-first branch walk: each branch produces a dispatch,
+expansion, or completed solution, and every dispatched subgoal returns through
+a continuation tag. Shared variables bind later conjuncts; disjunctions and
+parallel solutions copy branches so siblings remain independent.
 
-Compound-goal handling is the deepest part of the Facilitator and is
-**deferred** in oaa-next until atomic delegation is correct.
+The Developer's Guide discusses routing plans and names `plan_query` and
+`execute_plan` as possible meta-agent control points. A later source audit of
+the recovered 2.3.2 Facilitator found that its executable meta handlers admit
+only `(Type = prioritize ; Type = lookup)`. Those two hooks and compound-goal
+behavior are implemented; inventing additional event behavior would reduce,
+not improve, parity with the implementation being reconstructed.
 
 ## 7. Connection lifecycle
 
-- On `connected`, the Facilitator records the connection and assigns the client
-  a local ID, which it returns to the client during `oaa_Register`. Local IDs
-  are integers in the historical implementation, but the Developer's Guide
-  explicitly warns developers not to rely on that.
+- A raw socket is followed by `event(ev_connect(Info), [])`. The Facilitator
+  assigns a full client address and returns it in
+  `event(ev_connected(Info), [])`, before registration.
+- `ev_register_solvables/4` records capabilities while status is `open`;
+  `ev_ready/1` changes it to `ready`. Local integer IDs remain internal and
+  externally visible registry data uses `addr(tcp(Host,Port), LocalId)`.
 - Agents carry a status; `ready` and `open` both appear in lookup paths, so a
   client is visible for some purposes before it is fully ready.
 - On `end_of_file`, the agent's registry entry is removed, and with it the
   data facts it owned — subject to the `bookkeeping/1` and `persistent/1`
   parameters on the relevant solvables.
-- From 2.3.2, client and facilitator exchange regular pings so that a dead
-  connection is detected promptly, and an agent may reconnect *with the same
-  identity*. oaa-next should implement liveness from the start rather than
-  retrofitting it, because identity-across-reconnect constrains how local IDs
-  and goal IDs are allocated.
+- The recovered library contains heartbeat and sequencing machinery gated on
+  peer version `[2,3,3]` or newer, while this release reports `[2,3,2]`.
+  Therefore two target-version peers do not negotiate sequencing. The public
+  sequence predicates preserve that result and heartbeat events are accepted.
 
 ## 8. Backwards compatibility
 
@@ -189,9 +190,9 @@ versions — the `data/2` solvable and old-style `write_bb` events are OAA 1.0
 carry-over. The Facilitator was expected to serve agents built against older
 libraries.
 
-oaa-next does not need OAA 1.0 compatibility, but it should keep a comparable
-seam, because the historical lesson is that protocol drift was absorbed by
-the Facilitator and kept away from the client.
+OAA 1.0 translation remains outside the 2.3.2 Prolog/TCP compatibility
+boundary. The equivalent seam is retained: transport encoding/decoding and
+the classic API facade isolate historical forms from the lower-case runtime.
 
 ## 8a. A consequence of typed solvables worth knowing
 

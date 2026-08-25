@@ -46,7 +46,7 @@ cannot silently override a constraint the solvable itself declared.
 
 ## The reply to a data update
 
-`ev_data_updated(GoalId, Mode, Payload, Requestees, Solvers, Params)` has six
+`ev_data_updated(GoalId, Mode, Payload, Params, Requestees, Updaters)` has six
 arguments. The Developer's Guide's prose did not establish the arity;
 it was settled by reading SRI's own OTML conformance test corpus
 (`samples/test3/parallel.otml` in the recovered distribution, transcribed in

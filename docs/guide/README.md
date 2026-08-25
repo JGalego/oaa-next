@@ -22,7 +22,8 @@ source by section, following the practice used in `research/`.
 15. [API reference](api-reference.md) — every exported predicate, by module
 16. [LLM agents](llm-agents.md) — the optional `OAA_LLM` extension
 17. [Modern interoperability](modern-interoperability.md) — MCP and A2A adapters
-18. [Historical notes](historical-notes.md) — where oaa-next's behaviour was settled by evidence rather than by design choice, and where it deliberately diverges
+18. [Classic compatibility](classic-compatibility.md) — OAA 2.3.2 Prolog API and TCP wire parity, tests, and exact boundary
+19. [Historical notes](historical-notes.md) — where oaa-next's behaviour was settled by evidence rather than by design choice, and where it deliberately diverges
 
 Two documents outside this guide carry weight the pages above don't
 duplicate: [`../../research/compatibility-matrix.md`](../../research/compatibility-matrix.md)

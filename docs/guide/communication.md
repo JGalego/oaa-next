@@ -25,6 +25,11 @@ and `com_read/2` / `com_read_pending/2` move terms across an established
 connection; `com_poll/3` waits across several connections at once and returns
 those with input ready. The event loop's pump uses this operation.
 
+The same module exports the OAA 2.3.2 names (`com_Connect/3,4`,
+`com_ListenAt/3,4`, `com_SendData/2`, `com_SelectEvent/2`, connection-info,
+address, wakeup and shutdown predicates) for unchanged classic Prolog agents.
+See [`classic-compatibility.md`](classic-compatibility.md).
+
 ## The event queue
 
 Incoming terms are enqueued (`oaa_enqueue/2,3`) with a priority taken from a
@@ -44,6 +49,20 @@ for its `ev_data_updated` reply. An `on_receive` hook inside the wait still
 sees the event, and the agent library wires that hook to comm-trigger
 observation. See [`triggers.md`](triggers.md).
 
+## Wire envelope and handshake
+
+Conversational content is not sent as a bare `ev_*` term. OAA 2.3.2 wraps
+every message as `event(Content, EventParams).` on the TCP stream. The
+transport decodes that envelope before handing content to the modern event
+loop and creates it when modern code sends an `ev_*` term.
+
+A client first sends `ev_connect(ClientInfo)` and receives
+`ev_connected(FacilitatorInfo)`. The response assigns its full OAA address.
+It then sends `ev_register_solvables(Mode, Solvables, Name, Params)` and
+finally `ev_ready(Name)`. The open/ready distinction ensures a client does not
+receive delegated requests before startup is complete. Password validation
+and unique-name policy are part of this handshake.
+
 ## Wire events
 
 The conversational layer's vocabulary, as ICL terms with a parameter list:
@@ -53,9 +72,18 @@ The conversational layer's vocabulary, as ICL terms with a parameter list:
 | `ev_solve` | `ev_solve(GoalId, Goal, Params)` | A goal to solve |
 | `ev_solved` | `ev_solved(GoalId, Requestees, Solvers, Goal, Params, Solutions)` | The answer |
 | `ev_update_data` | `ev_update_data(GoalId, Mode, Payload, Params)` | Add/remove/replace a data clause |
-| `ev_data_updated` | `ev_data_updated(GoalId, Mode, Payload, Requestees, Solvers, Params)` | The six-argument reply to a data update, verified against SRI's own OTML conformance corpus (`samples/test3/parallel.otml`) |
+| `ev_data_updated` | `ev_data_updated(GoalId, Mode, Payload, Params, Requestees, Updaters)` | The historical six-argument reply to a data update |
 | `ev_update_trigger` | `ev_update_trigger(GoalId, Mode, Type, Condition, Action, Params)` | Install/remove a trigger, possibly on another agent |
-| `ev_registered` | `ev_registered(LocalId, Address)` | Registration acknowledged |
+| `ev_trigger_updated` | `ev_trigger_updated(GoalId, Mode, Type, Condition, Action, Params, Requestees, Updaters)` | Trigger update reply |
+| `ev_connect` / `ev_connected` | `ev_connect(Info)` / `ev_connected(Info)` | Historical connection handshake |
+| `ev_register_solvables` | `ev_register_solvables(Mode, Solvables, Name, Params)` | Add, remove, or replace advertised capabilities |
+| `ev_ready` | `ev_ready(Name)` | Change an agent from open to ready |
+| `ev_post_declare` / `ev_reply_declared` | Three/four arguments respectively | Remote declaration and acknowledgement |
+| `ev_heartbeat` / `ev_heartbeat_reply` | Atoms | Liveness exchange accepted by classic peers |
+
+`ev_registered/2` remains accepted only as a migration extension for early
+oaa-next peers. It is not the OAA 2.3.2 registration acknowledgement; the
+historical handshake assigns the address in `ev_connected/1`.
 
 `Goal` in `ev_solved` is a fresh variable by default from 2.3.2 onward
 (pre-2.3.2 echoed the actual goal); `-return_goal_with_solutions` restores

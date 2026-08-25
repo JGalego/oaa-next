@@ -44,12 +44,23 @@ oaa_agent_start(Name, Solvables, Options) :-
     ->  true
     ;   throw(oaa_error(no_facilitator_address))
     ),
-    oaa_connect([address(Addr)], _),
+    connection_params(Options, ConnectParams),
+    oaa_connect(parent, Addr, Name, ConnectParams),
     (   memberchk(timeout(T), Options)
     ->  oaa_set_timeout(T)
     ;   true
     ),
-    oaa_register(parent, Name, Solvables, []).
+    oaa_register(parent, Name, Solvables, []),
+    oaa_ready(false).
+
+  connection_params(Options, Params) :-
+    (   memberchk(password(Password), Options)
+    ->  Params = [password(Password)]
+    ;   oaa_resolve(use_password, true),
+      oaa_resolve(client_password, Password)
+    ->  Params = [password(Password)]
+    ;   Params = []
+    ).
 
 %!  oaa_agent_run(+Name, +Solvables, +Options) is det.
 %

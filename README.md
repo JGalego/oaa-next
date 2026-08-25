@@ -171,6 +171,18 @@ single facilitators and in hierarchies. The Agent Development Toolkit
 (generator, shell, debug REPL, Start-It, Monitor) sits on top of it. The test
 suite passes.
 
+Classic mode includes an OAA 2.3.2 Prolog source-compatibility facade and the
+historical TCP protocol: mixed-case public predicates and arities, the
+`event(Content, Params)` envelope, `ev_connect` / `ev_connected` handshake,
+four-argument solvable registration, `ev_ready`, full OAA addresses,
+password and unique-name checks, and historical update-reply layouts. A raw
+legacy-protocol client and an unchanged-style Prolog client are exercised
+against a live Facilitator by the compatibility suite. See
+[`docs/guide/classic-compatibility.md`](docs/guide/classic-compatibility.md)
+for the exact boundary: Prolog/TCP source and behavioral parity does not imply
+binary compatibility with the old C library or replacement Java/.NET/WebL
+bindings.
+
 Nothing in the core has an LLM dependency of any kind. `OAA_CLASSIC` names a
 system that contains no LLM, so there is nothing to switch off; the optional
 `OAA_LLM` mode adds a provider-independent LLM agent and meta-agent, entirely
@@ -181,9 +193,11 @@ MCP and A2A interoperability adapters translate at the edge of a community
 without changing its shape: an OAA capability can be exposed as an MCP tool
 or projected as an A2A Agent Card.
 
-Time triggers and the `plan_query`/`execute_plan` meta-agent hooks are
-deferred, and listed as such in
-[`research/compatibility-matrix.md`](research/compatibility-matrix.md).
+Time triggers use the separate Alarm agent, as they did historically. The
+recovered 2.3.2 Facilitator implements the `lookup` and `prioritize`
+meta-agent types; both are implemented here. `plan_query` and `execute_plan`
+appear in design documentation but not as executable hooks in the recovered
+2.3.2 source, so they are not part of the implementation-parity target.
 
 ## Historical Source Code
 

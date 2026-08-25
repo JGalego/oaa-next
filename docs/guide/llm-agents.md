@@ -104,7 +104,8 @@ existing hook adds LLM advice without changing the Facilitator itself. See
 "Meta-agents are where an LLM belongs" in
 [`../../research/compatibility-matrix.md`](../../research/compatibility-matrix.md).
 `plan_query` and `execute_plan`, which would let a meta-agent take over
-compound-goal routing rather than just advise it, remain deferred.
+compound-goal routing rather than just advise it, appear in design material
+but are not executable hook types in the recovered OAA 2.3.2 Facilitator.
 
 ## Boundaries
 
