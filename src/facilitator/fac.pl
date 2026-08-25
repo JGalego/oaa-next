@@ -29,16 +29,14 @@
 as every client, declares solvables like any agent, and answers requests
 through the same callback path.  This module makes that literal: its
 capabilities are registered with oaa_agent and answered through
-oaa_solve_local/2, not through a private mechanism.
+oaa_solve_local/2, by the same route a client uses.
 
-Two consequences, both architecture rather than accident:
-
-  * A Facilitator can be a client of another Facilitator -- pointing one at a
-    parent is the whole of what makes a hierarchy, with no separate
-    federation protocol.
-  * Capability discovery is not a privileged API.  The registry is the data
-    solvable `agent_data/6`, and asking who can solve a goal is asking the
-    facilitator's `can_solve/2` solvable, through ordinary oaa_Solve.
+A Facilitator can therefore be a client of another Facilitator: pointing one
+at a parent is all a hierarchy takes, with no separate federation protocol.
+Capability discovery goes through the same door as everything else -- the
+registry is the data solvable `agent_data/6`, and asking who can solve a goal
+means asking the facilitator's `can_solve/2` solvable through ordinary
+oaa_Solve.
 */
 
 :- dynamic agent_entry/6.       % ConnId, LocalId, Name, Status, Solvables, Info
@@ -231,8 +229,8 @@ handle(ConnId, ev_data_applied(FacGoalId, Ok)) :- !,
     data_provider_replied(ConnId, FacGoalId, Ok).
 handle(_ConnId, _Event).
 
-%   Registration is data maintenance on agent_data/6, not a bespoke registry
-%   operation.  Developer's Guide 5.1.6; facilitator.md section 2.
+%   Registration is data maintenance on agent_data/6.  Developer's Guide
+%   5.1.6; facilitator.md section 2.
 
 register_agent(ConnId, Name, SolvableSpecs, _Params) :-
     (   retract(agent_entry(ConnId, LocalId, _OldName, _St, _Sv, Info))
@@ -365,13 +363,13 @@ address_id(Id, _, Id) :-
 %   This is the seam an LLM attaches to.  Nothing below this point knows or
 %   cares how the meta-agent reached its answer.
 
-%   **Phase 1 status: the hook is located, not yet wired.**  Consulting a
+%   Phase 1 status: the hook is located and left unwired.  Consulting a
 %   meta-agent means the Facilitator making a request of a client and waiting
 %   for the answer, which a single-threaded facilitator must do without
 %   deadlocking against the very client it is asking.  That is deferred, and
 %   recorded as deferred in research/compatibility-matrix.md rather than
 %   faked.  Until then the Facilitator's own utility ordering always stands,
-%   which is exactly the documented fallback when no meta-agent returns
+%   which is the documented fallback when no meta-agent returns
 %   anything usable.
 
 apply_prioritize_meta(_Goal, _Params, _Registry, Selected, Selected).
@@ -400,7 +398,7 @@ send_request(FacGoalId, Goal, Params, candidate(Id, Solvable, _U)) :-
         com_send(ConnId, ev_solve(FacGoalId, Event, Params))
     ).
 
-%   The facilitator answering its own solvables goes through exactly the same
+%   The facilitator answering its own solvables goes through the same
 %   local-solving path a client agent uses.
 
 solve_on_facilitator(FacGoalId, Goal, Params) :-
@@ -437,7 +435,7 @@ note_reply(FacGoalId, ConnId) :-
 
 %   In parallel mode the request completes when every provider in the batch
 %   has replied.  In serial mode it completes when the solution limit is met
-%   or the candidate list is exhausted -- which is what makes strategy(action)
+%   or the candidate list is exhausted.  That is how strategy(action)
 %   try one agent, and on failure the next.
 
 maybe_complete(FacGoalId) :-

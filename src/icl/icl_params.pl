@@ -17,7 +17,7 @@
 /** <module> ICL parameter lists
 
 Parameters are functors with arguments -- `type(data)`, `solution_limit(5)`.
-Two conventions from the Developer's Guide are load-bearing:
+These conventions from the Developer's Guide carry real weight:
 
   * A boolean parameter whose value is `true` may omit the value, so
     `[type(data), single_value, persistent]` and

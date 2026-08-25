@@ -175,7 +175,7 @@ test(runtime_extension, [cleanup(icl_type_remove(celsius, number))]) :-
 :- begin_tests(icl_match).
 
 %  Developer's Guide 5.1.2: matching is unification of the goal against the
-%  solvable's goal template.  It is exact, not approximate.
+%  solvable's goal template.  The match is exact.
 test(matches_exact)      :- icl_matches(send(mail, adam, hi), send(mail, _To, _Msg)).
 test(matches_no, [fail]) :- icl_matches(send(fax, adam, hi), send(mail, _To, _Msg)).
 test(matches_arity, [fail]) :- icl_matches(send(mail, adam), send(mail, _, _)).

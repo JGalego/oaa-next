@@ -30,11 +30,11 @@ All interagent communication passes through this boundary.  The Developer's
 Guide is explicit that OAA was structured to allow other transports by
 specifying an API for the transport layer, loaded as a distinct module, with
 every procedure prefixed `com_`.  TCP is the only transport the historical
-system ever shipped, but the *seam* is the architecture, so it is preserved
-here: nothing above this module knows what a socket is.
+system ever shipped; the seam it left behind is kept here, so nothing above
+this module knows what a socket is.
 
-Framing is a stream of period-terminated ICL terms, which is what the
-historical grammars' multi-term entry point exists to read.
+Framing is a stream of period-terminated ICL terms, which the historical
+grammars' multi-term entry point exists to read.
 */
 
 :- dynamic connection/4.        % ConnId, Kind, InStream, OutStream
@@ -87,7 +87,7 @@ com_listen_at(ConnId, Params, Address) :-
     tcp_setopt(Socket, reuseaddr),
     %  Binding an unbound port asks the operating system for a free one and
     %  unifies Port with what it gave us.  The Developer's Guide notes that a
-    %  facilitator address may leave the port unspecified for exactly this.
+    %  facilitator address may leave the port unspecified for this.
     (   ( var(Port0) ; Port0 == 0 )
     ->  true
     ;   Port = Port0
@@ -222,8 +222,8 @@ append_buffer(ConnId, New) :-
 %
 %   Split off the first complete term.  A term ends at the first period that
 %   is outside any quoted text and is followed by layout.  Requiring the
-%   following layout character is what makes the scan safe against a buffer
-%   that ends exactly on the period: the term is simply not complete yet.
+%   following layout character keeps the scan safe against a buffer that
+%   ends on the period: the term is not complete yet.
 %
 %   Quote state is tracked so that a period inside 'an atom. like this' or
 %   inside a double-quoted body does not end the term.

@@ -56,8 +56,8 @@ test(on_restricts_operation, [setup(reset)]) :-
     oaa_note_data_change(remove, alert(x)),
     fired(notify_admin).
 
-%  Replacement binds both the old and the new value, which is what lets a
-%  trigger react to a change rather than to a state.  Developer's Guide 8.3.
+%  Replacement binds both the old and the new value, letting a trigger react
+%  to a change rather than to a state.  Developer's Guide 8.3.
 test(replace_binds_old_and_new, [setup(reset)]) :-
     oaa_add_trigger(data,
                     replace(position(car1, _X1, _Y1), position(car1, X2, Y2)),

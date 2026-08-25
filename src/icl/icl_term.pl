@@ -33,10 +33,9 @@
 
 The operations the rest of the system uses to compare and match ICL terms.
 
-The one rule that matters most here: **identity is structural, never
-textual**.  A term has several valid printed forms, differing in quoting, so
-comparing or hashing rendered strings gives wrong answers.  Everything below
-works on term structure.
+Identity here is structural.  A term has several valid printed forms,
+differing in quoting, so comparing or hashing rendered strings gives wrong
+answers.  Everything below works on term structure.
 */
 
 %!  icl_term_equal(+A, +B) is semidet.
@@ -66,20 +65,20 @@ icl_term_hash(Term, Hash) :-
 
 %!  icl_matches(+Goal, +Template) is semidet.
 %
-%   True when Goal unifies with Template, **without binding either**.  This is
-%   the test the Facilitator applies when selecting candidate solvers: it must
-%   ask the question of many templates in turn without one candidate's
-%   bindings leaking into the next.
+%   True when Goal unifies with Template, leaving both unbound.  The
+%   Facilitator applies this test when selecting candidate solvers: it asks
+%   the question of many templates in turn, and one candidate's bindings must
+%   not leak into the next.
 
 icl_matches(Goal, Template) :-
     \+ \+ Goal = Template.
 
 %!  icl_match(+Goal, +Template, -Bound) is semidet.
 %
-%   Unify a *fresh copy* of Template with a fresh copy of Goal, yielding the
-%   result in Bound.  The event delivered to a solving agent is exactly this
-%   unification, per Developer's Guide section 5.1.2, and copying is what
-%   keeps repeated dispatch of one goal to several providers independent.
+%   Unify a fresh copy of Template with a fresh copy of Goal, yielding the
+%   result in Bound.  Developer's Guide 5.1.2 defines the event delivered to a
+%   solving agent as this unification; copying keeps repeated dispatch of one
+%   goal to several providers independent.
 
 icl_match(Goal, Template, Bound) :-
     copy_term(Goal-Template, G-T),

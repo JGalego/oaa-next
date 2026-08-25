@@ -22,7 +22,7 @@
 The delegation sequence, in the order the Facilitator applies it:
 
   1. **Match by unification** against every connected agent's goal templates.
-     Only goal templates take part -- not permissions, not parameters.
+     Goal templates alone take part; permissions and parameters stay out.
   2. **Filter by argspecs**, honouring the ICL supertype hierarchy.
   3. **Order by utility**, descending; ties keep registration order, which is
      what "first-come, first-served" means for agents of equal utility.

@@ -6,7 +6,7 @@ OaaPrologNetParse.g` (ANTLR, Java library) and `src/oaalib/c/icl_parser/parser/
 parser.g` (PCCTS, C library). OAA 2.3.2, LGPL-2.1-or-later, © SRI
 International.
 
-Behavioural specification, not a transcription.
+A behavioural specification, written from observation.
 
 ---
 
@@ -16,8 +16,8 @@ ICL is described in the Developer's Guide as an extension of the Prolog
 programming language, chosen so that unification and backtracking are available
 and so that agent messages can be translated to and from natural language.
 
-That description is easy to over-read. **ICL is a term language, not Prolog.**
-The recovered grammars accept a deliberately restricted subset:
+That description is easy to over-read. ICL is a term language. The recovered
+grammars accept a restricted subset:
 
 - Structures — a functor applied to one or more arguments
 - Lists, including the `[Head|Tail]` form
@@ -37,7 +37,7 @@ The practical consequence for a reimplementation is sharp: **do not implement
 ICL by calling a full Prolog reader.** A Prolog reader accepts a strictly
 larger language than ICL does, so an implementation built that way will
 silently accept messages the historical system would have rejected, and will
-diverge in exactly the places compatibility tests should catch. oaa-next should
+diverge in the places compatibility tests should catch. oaa-next should
 implement the restricted grammar directly and treat the Prolog resemblance as
 being about *semantics* — unification, variables, backtracking over solutions —
 rather than about surface syntax.
@@ -61,28 +61,28 @@ router.
 
 This is the single argument that most needs preserving when adding
 interoperability adapters later. A JSON or MCP bridge that carries ICL as an
-opaque string is a downgrade in kind, not just in syntax.
+opaque string gives up that visibility, which is a change in kind.
 
 ## 3. Wire format
 
 Terms are transmitted terminated by a period. The Java grammar's entry points
 distinguish a single term (`startOneOnly`) from a stream of terms
-(`startMulti` / `netstruct`), which is what a socket carrying successive events
-needs.
+(`startMulti` / `netstruct`), which suits a socket carrying successive
+events.
 
 The character vocabulary in the recovered Java grammar is U+0000 to U+00FF —
 Latin-1. A `-latin1` variant of the grammar file ships alongside it, and the
 2.3.2 release notes record considerable churn in `IclStr` quoting behaviour.
-**Encoding is a known-weak area of the historical implementation.** oaa-next
-should be UTF-8 throughout and should record this as a deliberate
-modernization, not attempt to reproduce Latin-1 behaviour.
+Encoding is a known-weak area of the historical implementation. oaa-next
+should be UTF-8 throughout and record that as a modernization, rather than
+reproduce Latin-1 behaviour.
 
 Quoting deserves care. From the 2.3.2 notes, `IclStr` moved to storing an
 unquoted value and computing the minimally-quoted form lazily, with
 `toMinimallyQuotedString()`, `toForcedQuotedString()` and `toUnquotedString()`
 distinguished. The lesson is that **a term's printed form is not canonical** —
 the same term has several valid renderings — so equality and hashing must be
-defined on structure, not on printed text. The historical implementation
+defined on structure and never on printed text. The historical implementation
 learned this late; oaa-next should start there.
 
 ## 4. Type system
@@ -109,9 +109,9 @@ compound
 list
 ```
 
-Note that `icldataq/1` and `icldataq/3` are deliberately subtypes of *both*
-`compound` and `string` — the hierarchy is not a tree. An implementation using
-a single-parent type structure will get matchmaking wrong.
+`icldataq/1` and `icldataq/3` descend from both `compound` and `string`, so
+the hierarchy is a lattice. An implementation using a single-parent type
+structure will get matchmaking wrong.
 
 Document types exist to let external typing schemes ride along: `xml/2` takes a
 URL for an XML Schema declaration (or a variable, meaning unconstrained) and a
@@ -122,9 +122,9 @@ Type recognition is by inspection: primitive values are typed by the usual
 Prolog means, `icldataq` values by their arity, and `xml`/`mime` values by
 their functor with the second argument left free.
 
-**The hierarchy is extensible at runtime** — the Facilitator declares
-`icl_type(Type, SuperType)` as a *writable data solvable*, so facts can be
-added to it while the community is running. See
+The hierarchy can be extended at runtime: the Facilitator declares
+`icl_type(Type, SuperType)` as a writable data solvable, so facts can be added
+to it while the community is running. See
 [`facilitator.md`](facilitator.md) §2.
 
 ## 5. Solvables
@@ -136,10 +136,10 @@ solvable(GoalTemplate, Parameters, Permissions)
 Shorthand forms drop trailing arguments, down to a bare goal template; all
 forms normalize to the three-argument form on receipt.
 
-Matching is **unification of the goal against the goal template**. Permissions
-and parameters take no part in matching. This is worth stating flatly because
+Matching unifies the goal against the goal template. Permissions and
+parameters take no part in it. Stating that flatly is worth the space, because
 it is the property a "modernized" implementation is most likely to erode: OAA
-capability matching is exact and deterministic, not similarity-based.
+capability matching is exact and deterministic.
 
 Optional argument typing (from 2.3.0) uses `argspecs(Spec1, ..., SpecN)` where
 each spec is `in(Type, Required)`, `out(Type, Deterministic)` or
@@ -150,7 +150,7 @@ is documentation only and is not used by the Facilitator.
 ## 6. Parameter lists
 
 Parameters are functors with arguments — `type(data)`, `single_value(true)`,
-`solution_limit(5)`. Two conventions matter:
+`solution_limit(5)`. The conventions that matter:
 
 - A boolean parameter with value `true` may omit the value, so
   `[type(data), single_value(true), persistent(true)]` and
@@ -179,17 +179,19 @@ with further messages between the Facilitator and the solvers in between.
 `Requestees` is the list of local IDs asked; `Solvers` the list that actually
 returned solutions; each solution unifies with `Goal`.
 
-Two 2.3.2 changes are load-bearing for a reconstruction:
+Changes made in 2.3.2 that bear on a reconstruction:
 
 - The `Goal` position in `ev_solved` carries a **variable** by default from
-  2.3.2 onward, not a copy of the goal — a bandwidth fix. The old behaviour is
+  2.3.2 onward in place of a copy of the goal — a bandwidth fix. The old
+  behaviour is
   restorable with `return_goal_with_solutions`, and the 2.3.1 Monitor requires
   it. This is the one documented wire change that visibly breaks
   compatibility.
 - `GoalId` is generated **client-side** and, from 2.3.2, starts from a random
   integer rather than 1, because sequential IDs allowed replies to two
   different solve requests to be intermixed. Any reimplementation must make
-  goal IDs unique per requester *across reconnects*, not merely increasing.
+  goal IDs unique per requester *across reconnects*; increasing is not
+  enough.
 
 ## 8. Addresses
 
@@ -214,10 +216,10 @@ reconstruction by making them opaque.
 
 - The complete set of escape sequences inside quoted atoms and `icldataq`
   bodies. The grammar handles this in lexer rules not yet fully read.
-- Whether the C (PCCTS) and Java (ANTLR) grammars accept exactly the same
-  language, or diverge at the edges. **Worth a direct comparison** — a
-  divergence between two libraries shipped in the same release would be a
-  strong signal about which behaviours are actually load-bearing.
+- Whether the C (PCCTS) and Java (ANTLR) grammars accept the same language,
+  or diverge at the edges. Worth a direct comparison: a divergence between two
+  libraries shipped in the same release would say a good deal about which
+  behaviours agents actually relied on.
 - The exact form and semantics of `icldataq/3`'s three arguments; the
   Developer's Guide defers to documentation "elsewhere" that has not been
   recovered.

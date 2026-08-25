@@ -1,32 +1,32 @@
-# Phase 1 proposal — the historical core
+# Phase 1 — the historical core
 
-**Status: proposal, awaiting the project owner's approval.** Nothing in this
-document has been implemented.
+Approved and built. Kept here as the plan the work followed; where it and the
+code disagree, the code and `research/compatibility-matrix.md` are current.
 
-Phase 1 delivers a working OAA community: a Facilitator, an agent library,
-ICL, solvables, registration, delegation, data solvables and triggers — running
-with **no LLM dependency of any kind**. The result must be usable indefinitely
-in `OAA_CLASSIC` mode.
+Phase 1 delivers a working OAA community: a Facilitator, an agent library, ICL,
+solvables, registration, delegation, data solvables and triggers, running with
+no LLM dependency of any kind. The result has to be usable indefinitely in
+`OAA_CLASSIC` mode.
 
 ## Prerequisites, and what is already settled
 
 Settled in Phase 0:
 
-- **Prolog implementation: SWI-Prolog.** Historical OAA ran on SICStus
-  (default from 2.2.0) and Quintus. Both are proprietary. SWI-Prolog 9.x is the
-  maintained, freely available, ISO-conformant equivalent, and adding a third
-  dialect to a system that already carried a dialect-compatibility layer
-  (`spcompat.pl`, `oaa:current_prolog/1`) is faithful rather than deviant.
-- **The Facilitator is written in Prolog**, and its historical source is
-  available as a behavioural reference.
-- **ICL is a restricted term language**, not full Prolog syntax, and will be
-  implemented as such.
-- **Clean-room**: the recovered source informs the specification; oaa-next code
-  is authored independently.
+- Prolog implementation: SWI-Prolog. Historical OAA ran on SICStus, the
+  default from 2.2.0, with Quintus behind it; both are proprietary. SWI-Prolog
+  9.x is the maintained, freely available, ISO-conformant equivalent, and
+  adding a third dialect to a system that already carried a
+  dialect-compatibility layer (`spcompat.pl`, `oaa:current_prolog/1`) stays
+  faithful to the original design.
+- The Facilitator is written in Prolog, and its historical source is available
+  as a behavioural reference.
+- ICL is a restricted term language, and will be implemented as one.
+- Clean-room: the recovered source informs the specification; oaa-next code is
+  authored independently.
 
-Two owner decisions remain open. **Neither blocks starting Phase 1**, because
-clean-room code can be licensed after the fact and renamed cheaply, but both
-should be resolved before any public release:
+These decisions remain open for the owner. Neither blocks starting Phase 1,
+since clean-room code can be licensed after the fact and renamed cheaply, but
+both should be resolved before any public release:
 
 1. The oaa-next license for newly authored code (`research/licensing.md` §5).
 2. The trademark position and hence the project name (`research/licensing.md` §6).
@@ -35,16 +35,17 @@ should be resolved before any public release:
 
 These are the invariants Phase 1 must not break.
 
-1. **The Facilitator is an ordinary agent.** It uses the same library, registers
-   like any client, and answers requests through the same callback path. No
-   separate service type.
-2. **The registry is a data solvable.** `agent_data/6` and friends, maintained
-   through the same data primitives clients use. No bespoke registry object.
-3. **Matching is unification.** Exact, deterministic, on goal templates only.
-4. **The transport is behind a `com_` seam.** TCP is the implementation; the
-   API boundary is the architecture.
-5. **Nothing in the core knows what an LLM is.** No import, no configuration
-   key, no conditional. The extension boundary comes in Phase 4 and attaches at
+1. The Facilitator is an ordinary agent. It uses the same library, registers
+   like any client, and answers requests through the same callback path, with
+   no separate service type.
+2. The registry is a data solvable. `agent_data/6` and its companions,
+   maintained through the same data primitives clients use, with no bespoke
+   registry object.
+3. Matching is unification: exact, deterministic, on goal templates alone.
+4. The transport sits behind a `com_` seam. TCP is the implementation; the API
+   boundary is the architecture.
+5. Nothing in the core knows what an LLM is — no import, no configuration key,
+   no conditional. The extension boundary arrives in Phase 4 and attaches at
    the meta-agent hooks, which already exist.
 
 ## Deliverables, in dependency order
@@ -72,7 +73,7 @@ negative tests that ICL **rejects** what full Prolog would accept — `X is 1+2`
 
 - The supertype lattice, honouring `icldataq` having two parents.
 - Type recognition by inspection.
-- `icl_type/2` as a runtime-writable relation, not a static enum.
+- `icl_type/2` as a runtime-writable relation rather than a static enum.
 
 *Tests:* subtype queries across every documented pair; runtime extension of the
 hierarchy changes matchmaking outcomes.
@@ -154,12 +155,13 @@ agent's facts disappear.
 - `oaa_AddTrigger` / `oaa_RemoveTrigger` for `comm`, `data` and `task`.
 - Stored as instances of the built-in data solvable `oaa_trigger/5`, so
   installed triggers are queryable through `oaa_Solve` — this reflexivity is
-  part of the architecture, not an implementation detail.
+  part of the architecture rather than an implementation detail.
 - `on/1`, `test/1`, `recurrence/1` (`when` / `whenever` / integer).
 - Actions as `oaa_Solve` or `oaa_Interpret` terms, with `reply` defaulting to
   `none` inside a trigger.
-- Task triggers: condition **not** checked by the library; `app_setup_trigger`
-  notification and `oaa_CheckTriggers/3` supplied for application code.
+- Task triggers: the library leaves the condition unchecked, supplying
+  `app_setup_trigger` notification and `oaa_CheckTriggers/3` for application
+  code.
 - `time` triggers stay out of the library, as historically — an Alarm agent
   supplies them, and is a Phase 3 sample.
 
@@ -169,9 +171,9 @@ agent's facts disappear.
 - `setup.pl` in the documented search order.
 - `default_facilitator(tcp(Host, Port))`, `oaa_connect`, `oaa_listen`,
   `oaa_name`, `write_setup_file`, `on_port_exception` with all five actions.
-- **`OAA_CLASSIC` is the only mode Phase 1 knows about.** The mode switch is
-  introduced here so it is load-bearing from the beginning; `OAA_LLM` is simply
-  not a value the core accepts yet.
+- `OAA_CLASSIC` is the only mode Phase 1 knows about. The switch arrives here
+  so that later work does not have to retrofit it; `OAA_LLM` is not yet a
+  value the core accepts.
 
 ### 1.10 A running community
 
@@ -180,7 +182,7 @@ one solve a goal it cannot answer itself, and observe the Facilitator discover,
 delegate, collect and return. No LLM present, no LLM package installed, no
 credentials configured.
 
-## Proposed layout
+## Layout
 
 ```
 src/
@@ -214,12 +216,12 @@ RECONSTRUCTED / MODERNIZED / NEW), and an update to
 
 ## Risks
 
-- **The Reference Manual is not yet recovered.** The Developer's Guide defers
-  to it for exhaustive parameter lists. Phase 1 will hit gaps; each becomes an
-  entry in the relevant note's "open questions" rather than an invention.
-  Retrieving it early would reduce this materially.
-- **Compound goals are deferred**, and `compound.pl` is 43 KB — the deferral is
-  real scope, not a formality. The Phase 1 Facilitator handles atomic goals.
-- **Backtracking across a network boundary** is the conceptually hardest part
-  of `oaa_Solve`'s Prolog-facing contract, and where a naive implementation
-  will diverge first.
+- The Reference Manual has not been recovered. The Developer's Guide defers
+  to it for exhaustive parameter lists, so Phase 1 will hit gaps; each becomes
+  an entry in the relevant note's "open questions" rather than an invention.
+  Retrieving it early would reduce that materially.
+- Compound goals are deferred, and `compound.pl` runs to 43 KB, so the
+  deferral is real scope. The Phase 1 Facilitator handles atomic goals.
+- Backtracking across a network boundary is the hardest part of `oaa_Solve`'s
+  Prolog-facing contract, and where a naive implementation will diverge
+  first.

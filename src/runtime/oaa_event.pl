@@ -35,23 +35,22 @@
 
 Every agent's activity is structured around an event loop, started by
 oaa_MainLoop, which repeatedly checks the event queue and dispatches whatever
-arrives.  Three things about the historical design are reproduced here
-because they are visible to agent code:
+arrives.  Parts of the historical design show through to agent code, so they
+are reproduced here.
 
-  * **Priorities interrupt.**  Events carry a priority from 1 to 10, default
-    5.  While an agent is blocked waiting for solutions to a goal, an arriving
-    event of the same or lower priority is queued for later, and one of higher
-    priority is executed immediately, interrupting the current goal
-    (Developer's Guide 5.5).  That is implemented here as a re-entrant loop
-    rather than with threads: oaa_wait_for/3 runs a nested pump that admits
-    only events above the priority it was entered at.
+Priorities interrupt.  Events carry a priority from 1 to 10, default 5.
+While an agent is blocked waiting for solutions to a goal, an arriving event
+of the same or lower priority is queued for later, and one of higher priority
+is executed immediately, interrupting the current goal (Developer's Guide
+5.5).  A re-entrant loop does this in place of threads: oaa_wait_for/3 runs a
+nested pump that admits only events above the priority it was entered at.
 
-  * **Timeouts drive app_idle.**  oaa_SetTimeout supplies the delay used when
-    polling; whenever it elapses with nothing to do, the app_idle callback
-    runs.  Its default of 0 means no timeout.
+Timeouts drive app_idle.  oaa_SetTimeout supplies the delay used when polling;
+whenever it elapses with nothing to do, the app_idle callback runs.  Its
+default of 0 means no timeout.
 
-  * **Callbacks are registered by name**, as oaa_RegisterCallback did:
-    app_do_event, app_idle, app_done, app_setup_trigger.
+Callbacks are registered by name, as oaa_RegisterCallback did: app_do_event,
+app_idle, app_done, app_setup_trigger.
 */
 
 :- meta_predicate
@@ -140,7 +139,7 @@ oaa_dequeue(ConnId, Term, Priority) :-
 %!  oaa_dequeue_above(+MinPriority, -ConnId, -Term, -Priority) is semidet.
 %
 %   As oaa_dequeue/3, but consider only events strictly above MinPriority.
-%   This is what makes a nested pump admit interrupting events while leaving
+%   A nested pump uses this to admit interrupting events while leaving
 %   everything else queued for the outer loop.
 
 oaa_dequeue_above(Min, ConnId, Term, Priority) :-
@@ -271,7 +270,7 @@ turn(Handler) :-
     ).
 
 %   With no timeout configured the loop still must not spin, so a bare poll
-%   blocks.  A configured timeout is what makes app_idle fire.
+%   blocks.  A configured timeout is what app_idle fires on.
 poll_delay(0, infinite) :- !.
 poll_delay(D, D).
 

@@ -31,7 +31,7 @@ A solvable is a capability declaration:
     solvable(GoalTemplate, Parameters, Permissions)
 
 Shorthand forms drop trailing arguments, down to a bare goal template; all of
-them normalize to the three-argument form, exactly as the historical libraries
+them normalize to the three-argument form, as the historical libraries
 did on receipt.
 
 Matching is **unification of the goal against the goal template**.  Neither

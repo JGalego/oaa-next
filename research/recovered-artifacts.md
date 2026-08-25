@@ -3,11 +3,11 @@
 Every artifact consulted by this project, with provenance and cryptographic
 hashes so that anyone can obtain the same bytes and verify them.
 
-**Nothing listed here is committed to this repository.** The recovered
-distribution is LGPL-2.1-or-later and *could* lawfully be redistributed, but
-oaa-next keeps historical material out of its own tree so that the boundary
-between ORIGINAL and NEW stays unambiguous, and so that the project's own
-license choice remains unconstrained. See `licensing.md` §5.
+Nothing listed here is committed to this repository. The recovered
+distribution is LGPL-2.1-or-later and could lawfully be redistributed, but
+oaa-next keeps historical material out of its own tree to leave the boundary
+between ORIGINAL and NEW unambiguous and the project's own license choice
+unconstrained. See `licensing.md` §5.
 
 Retrieval date for all entries: **2026-08-24**.
 
@@ -41,8 +41,8 @@ Not retrieved, known to exist, same directory:
 - `https://www.ai.sri.com/~oaa/distribution/v2.2` — the 2.2.1 distribution.
 - `https://www.ai.sri.com/~oaa/distribution/v2.3/download` — the 2.3.0
   distribution.
-- `https://www.ai.sri.com/~oaa/distribution/distribv1/` — **OAA 1.x.** Not
-  covered by the 2.3.2 LGPL relicense; its license must be established
+- `https://www.ai.sri.com/~oaa/distribution/distribv1/` — OAA 1.x. The 2.3.2
+  LGPL relicense does not reach it, so its license has to be established
   separately before use.
 - `https://www.ai.sri.com/~oaa/contributions/` — community-contributed agents,
   each with its own provenance.
@@ -60,9 +60,9 @@ Not retrieved, known to exist, same directory:
 | *Multimodal User Interfaces in the OAA* (IUI'97) | `9b572c567a05e32996dcd5657573564e62295e2706d24f2e6bf8045954658adb` | 8 | `https://www.sri.com/wp-content/uploads/2021/12/multimodal_user_interfaces_in_the_open_agent_architecture.pdf` |
 | SRI e-service modeling paper | `5658fd25879c0b7798bac3d610f0925d861d9a67386e94ceea0955c4763774db` | 10 | `https://www.csl.sri.com/papers/eservice-modeling/eservice-modeling.pdf` |
 
-The two Developer's Guide captures sharing a hash is worth restating: they are
-one document filed under two petition IDs. They are not independent
-corroboration, and should not be cited as such.
+The two Developer's Guide captures share a hash: one document filed under two
+petition IDs. They give no independent corroboration and should not be cited
+as though they did.
 
 ## Structure of the 2.3.2 distribution
 

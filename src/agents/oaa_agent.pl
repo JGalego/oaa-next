@@ -45,10 +45,9 @@ capabilities provided by the agent library determine what an OAA agent is, and
 this module is that: connect, register, declare solvables, request services,
 answer requests, maintain data, disconnect.
 
-The Facilitator uses this same library.  That is not an economy; it is the
-architecture.  A facilitator is an ordinary agent that happens to declare the
-facilitator solvables, which is exactly why a facilitator can be a client of
-another facilitator with no separate federation protocol.
+The Facilitator uses this same library.  A facilitator is an ordinary agent
+that declares the facilitator solvables, which is how a facilitator can become
+a client of another facilitator with no separate federation protocol.
 */
 
 :- dynamic my_name/1.
@@ -158,7 +157,7 @@ public_solvables(All, Public) :-
 %
 %   Modify the declared capability set after registration.  oaa_redeclare is
 %   conceptually an undeclare followed by a declare, except that the two take
-%   effect together -- which is what makes it the right way to change a
+%   effect together, which makes it the right way to change a
 %   solvable's parameters or permissions.
 
 oaa_declare(Solvables, Params) :-
@@ -260,8 +259,7 @@ oaa_address(ConnId, Kind, Address) :-
 %   Request a service.  With an empty parameter list this behaves like the
 %   Prolog primitive call/1: it blocks until the goal is finished, it can fail
 %   or succeed, and multiple solutions are obtained through backtracking.
-%   That equivalence is the point of the design, and it is why the return path
-%   below ends in member/2 rather than in a list.
+%   The return path below ends in member/2 for that reason.
 %
 %   Parameters recognised here:
 %
@@ -521,7 +519,7 @@ owner_of(Params, Owner) :-
 
 oaa_handle_event(ConnId, Event) :-
     %  Every incoming event is offered to the comm triggers before it is
-    %  handled, which is what lets a trigger watch traffic it does not own.
+    %  handled, letting a trigger watch traffic it does not own.
     oaa_note_event(receive, ConnId, Event),
     fail.
 oaa_handle_event(ConnId, ev_solve(GoalId, Goal, Params)) :- !,

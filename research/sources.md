@@ -45,7 +45,7 @@ secondary description of OAA's implementation. A Unix counterpart
 not retrieved; per the distribution's own README the two differ only in
 line endings and platform-specific binaries.
 
-**Not committed to this repository.** See `recovered-artifacts.md`.
+Not committed to this repository; see `recovered-artifacts.md`.
 
 ### Key files within the distribution
 
@@ -83,9 +83,8 @@ A second USPTO artifact was cited in the project brief as an alternate copy:
 - `https://ptacts.uspto.gov/ptacts/public-informations/petitions/1524643/download-documents?artifactId=zsxRuFxemeOTNwYyVAFdCPIaQ4a8AmeW_4DXeiH0iDcp-OsIPl_uMV4`
 - SHA-256: `6e532f891623eee5d7fddb061ae25a8a091dd27d1ddb8bb1e998d00d45ee390d`
 
-**Finding:** the two USPTO artifacts are byte-identical. They are one document
-served under two petition IDs, not two independent captures, and therefore do
-**not** corroborate each other.
+The two USPTO artifacts turn out to be byte-identical: one document served
+under two petition IDs. They give no independent corroboration of each other.
 
 ### OAA v2.x FAQ
 

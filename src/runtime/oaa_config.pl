@@ -25,8 +25,8 @@ order they are consulted:
 
 taken in that order, first value found wins.  Library code searches all three
 whenever it resolves a variable, and developers adding their own arguments are
-encouraged to follow the same convention -- so the precedence is part of the
-architecture, not an implementation detail.
+encouraged to follow the same convention, so the precedence carries beyond
+the library's own arguments.
 
 The setup file is Prolog syntax.  It is looked for, in order, at a path given
 by -setup_file or SETUP_FILE, then setup.pl in the working directory, then
@@ -41,10 +41,10 @@ it as where to connect, a facilitator as where to listen.
 ## Mode
 
 Phase 1 runs in `OAA_CLASSIC` and knows no other value.  The switch exists
-from the beginning so that it is load-bearing rather than retrofitted, but
-`OAA_LLM` is not yet a value the core accepts: enabling it here would do
-nothing, because nothing in the core consults it.  The LLM extension attaches
-at the meta-agent boundary, outside the core entirely.
+from the start so that later work does not have to retrofit it.  `OAA_LLM` is
+rejected outright: setting it would achieve nothing, since nothing in the core
+consults it.  The LLM extension attaches at the meta-agent boundary, outside
+the core entirely.
 */
 
 :- dynamic setup_fact/1.

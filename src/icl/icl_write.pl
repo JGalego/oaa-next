@@ -17,12 +17,12 @@
 
 Renders ICL terms in a form the ICL parser reads back.
 
-A term's printed form is **not** canonical: the same term has several valid
-renderings, differing in how atoms are quoted.  The historical Java library
-arrived at this late, and made the distinction explicit with separate
-minimally-quoted, forced-quoted and unquoted renderings; the same three modes
-are offered here.  The consequence is that ICL term equality and hashing must
-be defined on structure, never on printed text -- see icl_term.pl.
+The same term has several valid printed forms, differing in how atoms are
+quoted.  The historical Java library arrived at this late and made the
+distinction explicit with separate minimally-quoted, forced-quoted and
+unquoted renderings; those modes are offered here.  ICL term equality and
+hashing therefore work on structure and never on printed text -- see
+icl_term.pl.
 
 Options accepted by icl_term_string/3:
 

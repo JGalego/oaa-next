@@ -17,7 +17,7 @@
 
 run :-
     oaa_agent_start(client, [], []),
-    %  Probe with a representative goal, not a wholly-unbound one.  A
+    %  Probe with a representative goal rather than a wholly unbound one.  A
     %  solvable that declares argspecs(in(number, true), ...) requires its
     %  input to be instantiated, so can_solve(square(_, _), A) correctly
     %  matches nothing.  Asking about square(1, _) asks the real question.

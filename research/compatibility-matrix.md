@@ -17,11 +17,11 @@ for that claim, and what oaa-next intends to do about it.
 The historical core is running. A Facilitator and client agents, each its own
 operating-system process, exchange ICL over TCP; capabilities are declared as
 solvables, matched by unification, ordered by utility and delegated; data
-solvables, ownership, blackboards and triggers all work. 226 tests pass, and
-no part of it has any LLM dependency.
+solvables, ownership, blackboards and triggers all work. The test suite
+passes, and no part of it has any LLM dependency.
 
-What is deliberately **not** done, and is recorded as `deferred` below rather
-than quietly dropped:
+Left undone on purpose, and recorded as `deferred` below rather than quietly
+dropped:
 
 | Deferred | Why |
 |---|---|
@@ -33,10 +33,10 @@ than quietly dropped:
 | `test`-locatable queries | Only meaningful with multiple facilitators |
 | Delayed solutions | `oaa_DelaySolution` and friends; the synchronous path came first |
 
-Two things found during implementation are recorded in the notes rather than
-here: that `can_solve` with a wholly-unbound goal cannot match a solvable
-declaring required inputs (facilitator.md §8a), and that ICL's grammar is a
-restricted term language rather than Prolog syntax (icl.md §1).
+Findings from the implementation itself live in the notes rather than here:
+`can_solve` with a wholly unbound goal cannot match a solvable declaring
+required inputs (facilitator.md §8a), and ICL's grammar is a restricted term
+language rather than Prolog syntax (icl.md §1).
 
 **Provenance** values, per the project's ORIGINAL / RECONSTRUCTED / MODERNIZED
 / NEW distinction, are recorded per subsystem once implementation begins.
@@ -58,14 +58,14 @@ Evidence abbreviations: **DG** = OAA Developer's Guide v2.3.2; **SRC** = OAA
 | Transport | TCP/IP, behind a `com_`-prefixed transport API loaded as a separate module | DG §4.2 | Same: TCP with a `com_` transport boundary | Preserve the API seam — it is why OAA could claim transport independence | reconstructed |
 | Build | Makefiles, MSVC project files, gcc, JDK 1.4 | SRC | Modern toolchains | Versions, not architecture | planned |
 
-**On replacing SICStus/Quintus with SWI-Prolog.** This looks like a deviation
+On replacing SICStus and Quintus with SWI-Prolog: this looks like a deviation
 and is arguably the opposite. OAA already ran on two different Prolog systems
-and carried an explicit compatibility layer for it: `spcompat.pl` (37 KB) holds
-the SICStus-specific code, `oaa.pl` and `com_tcp.pl` branch in a small number
-of places, and the current dialect is discovered at runtime by calling
+and carried a compatibility layer for it. `spcompat.pl` (37 KB) holds the
+SICStus-specific code, `oaa.pl` and `com_tcp.pl` branch in a handful of
+places, and the current dialect is discovered at runtime by calling
 `oaa:current_prolog(P)`, which answers `sicstus` or `quintus`. Supporting a
-third dialect is a move OAA's own design anticipated. oaa-next should keep an
-equivalent seam rather than assume a single Prolog.
+third dialect is a move OAA's own design anticipated, so oaa-next should keep
+an equivalent seam rather than assume a single Prolog.
 
 ## Core architecture
 
@@ -169,15 +169,15 @@ equivalent seam rather than assume a single Prolog.
 | Direct connect | `direct_connect(true)` bypasses the facilitator for message flow while the facilitator still selects the provider; requires a provider listener socket registered before `oaa_Register`; single-provider, single-facilitator, `oaa_Solve` only; `time_limit` and `parallel_ok` ignored | DG §10.1 | Same, incl. limitations | deferred |
 | Meta-agents | Agents declaring `meta(Type, +Goal, +Params, +FacInfo, -Result)` with `Type` in `lookup`, `prioritize`, `plan_query`, `execute_plan`; consulted in utility order until one returns usable information, else the facilitator's own default | DG §5.6 | Same — see note below | deferred |
 
-**Meta-agents are where an LLM belongs.** The `prioritize` hook reorders the
-facilitator's candidate solver list; `lookup` finds and starts an agent when no
-local one matches; `plan_query` refines a routing plan. These are exactly the
-decisions an LLM could improve, and OAA already defined them as *optional,
-external, and fallible* — the facilitator proceeds with its deterministic
-default when no meta-agent returns anything usable. An LLM meta-agent is
-therefore an additive extension that changes nothing about the core, which is
-precisely the invariant this project requires. Recorded here because it means
-the LLM extension does **not** need to modify the Facilitator at all.
+Meta-agents are where an LLM belongs. The `prioritize` hook reorders the
+facilitator's candidate solver list; `lookup` finds and starts an agent when
+no local one matches; `plan_query` refines a routing plan. These are the
+decisions an LLM could improve, and OAA already defined them as optional,
+external and fallible: the facilitator proceeds with its deterministic default
+when no meta-agent returns anything usable. An LLM meta-agent is therefore an
+additive extension that changes nothing about the core, which is the invariant
+this project requires. Recorded here because it means the LLM extension can
+leave the Facilitator alone.
 
 ## Deliberate non-goals
 

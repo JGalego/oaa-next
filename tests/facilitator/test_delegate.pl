@@ -1,7 +1,7 @@
 /*  oaa-next -- Facilitator delegation tests
  *
  *  These are the architectural scenarios from docs/roadmap/phase-1.md:
- *  they assert what the Facilitator does, not how it is written.
+ *  they assert what the Facilitator does, leaving aside how it is written.
  */
 
 :- module(test_delegate, []).
@@ -77,8 +77,8 @@ test(reflexive_false_excludes_requester) :-
     \+ memberchk(candidate(1, _, _), Selected),
     memberchk(candidate(2, _, _), Selected).
 
-%   A data solvable is selected by exactly the same matching as a procedure
-%   solvable: calling a data solvable looks the same as calling a procedure.
+%   A data solvable is selected by the same matching as a procedure solvable:
+%   calling one looks the same as calling the other.
 test(data_solvable_selected_like_procedure) :-
     registry(R),
     fac_select(rating(delta, _), R, [], 99, Selected),

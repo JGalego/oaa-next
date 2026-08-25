@@ -59,7 +59,7 @@ test(remove_all, [setup(oaa_data_clear)]) :-
 test(remove_nonexistent, [setup(oaa_data_clear)]) :-
     oaa_data_remove(a1, r(_), [], Count), Count == 0.
 
-%  Replacement is one operation, not two.
+%  Replacement happens as a single operation.
 test(replace, [setup(oaa_data_clear)]) :-
     oaa_data_add(a1, pos(car, 0, 0), [], _),
     oaa_data_replace(a1, pos(car, _, _), pos(car, 5, 9), [], true),

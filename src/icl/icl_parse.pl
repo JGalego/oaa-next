@@ -18,7 +18,7 @@
 
 Parses the restricted term language described in
 research/implementation-notes/icl.md.  ICL terms are represented as native
-SWI-Prolog terms, which is what gives unification -- the basis of OAA
+SWI-Prolog terms, which supplies unification -- the basis of OAA
 capability matching -- for free:
 
     | ICL              | representation                  |
@@ -31,12 +31,12 @@ capability matching -- for free:
     | double-quoted    | SWI string object               |
     | icldataq(...)    | compound with functor icldataq  |
 
-There is deliberately no operator table.  `X is 1+2` and `a :- b` are syntax
-errors in ICL, exactly as they were in the historical grammars, where the
-operator tokens are present but commented out.
+There is no operator table.  `X is 1+2` and `a :- b` are syntax errors in ICL,
+as they were in the historical grammars, where the operator tokens sit
+commented out.
 
-Two documented departures from a standard Prolog reader, both consequences of
-there being no operators to disambiguate against:
+Having no operators to disambiguate against leads to two departures from a
+standard Prolog reader:
 
   * A minus sign followed by a numeric literal always denotes a negative
     number, whether or not layout separates them.  Standard Prolog would read

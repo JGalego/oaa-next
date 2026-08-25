@@ -3,11 +3,10 @@
 An independent reimplementation and modernization of SRI International's Open
 Agent Architecture (OAA), extended to support LLM-based agents.
 
-oaa-next is not a new agent framework inspired by OAA. It is an attempt to
-rebuild the original architecture and developer experience as faithfully as the
-evidence permits, using current implementations of the original technology
-stack, and then to add LLM support as an optional extension that does not
-change the architecture underneath it.
+The aim is to rebuild the original architecture and developer experience as
+faithfully as the evidence permits, using current implementations of the
+original technology stack, and then to add LLM support as an optional
+extension that leaves the architecture underneath it alone.
 
 The question the project exists to answer:
 
@@ -29,15 +28,14 @@ The question the project exists to answer:
 
 The core runs in SWI-Prolog. A Facilitator and client agents, each its own
 operating-system process, exchange ICL over TCP: capabilities are declared as
-solvables, matched by unification, ordered by utility and delegated;
-data solvables, ownership, blackboards and triggers all work. 226 tests pass.
+solvables, matched by unification, ordered by utility and delegated. Data
+solvables, ownership, blackboards and triggers work. The test suite passes.
 
-Nothing in it has an LLM dependency of any kind, and that is the point —
-`OAA_CLASSIC` is not a mode with the LLM switched off, it is a system that
-does not contain one.
+Nothing in the core has an LLM dependency of any kind. `OAA_CLASSIC` names a
+system that contains no LLM, so there is nothing to switch off.
 
-What is deliberately deferred — compound goals, facilitator hierarchies,
-direct connect, meta-agent consultation, time triggers — is listed in
+Compound goals, facilitator hierarchies, direct connect, meta-agent
+consultation and time triggers are deferred, and listed as such in
 [`research/compatibility-matrix.md`](research/compatibility-matrix.md).
 
 ## Running it
@@ -52,36 +50,36 @@ swipl examples/basic/greet_agent.pl -- &
 swipl examples/basic/client.pl --
 ```
 
-The client prints `square(7) = 49`, backtracks over three greetings, and fails
-on a goal nothing can solve. It names no agent, no host and no port — which is
-the whole point of delegation.
+The client prints `square(7) = 49`, backtracks over the greetings, and fails
+on a goal nothing can solve. It names no agent, no host and no port; the
+Facilitator works out who to ask.
 
 ## What Phase 0 established
 
-**The original distribution survives.** SRI's original host,
-`www.ai.sri.com/~oaa`, is still serving the complete OAA 2.3.2 tree — source,
-runtime and documentation. No archive was needed. Provenance and SHA-256 hashes
-for everything consulted are in [`research/recovered-artifacts.md`](research/recovered-artifacts.md).
+The original distribution survives. SRI's host, `www.ai.sri.com/~oaa`, is
+still serving the complete OAA 2.3.2 tree: source, runtime and documentation.
+No archive was needed. Provenance and SHA-256 hashes for everything consulted
+are in [`research/recovered-artifacts.md`](research/recovered-artifacts.md).
 
-**OAA 2.3.2 is LGPL-2.1-or-later, not a non-commercial license.** The
-frequently-cited FAQ describes a non-commercial "community license", and that
-was true of 2.3.0 and 2.3.1. The final release, in June 2007, relicensed the
-software; this is confirmed by the license file, the distribution's own
-licensing statement, the release notes, and LGPL headers on 413 of 596 source
-files. Details, including what the superseded license said, are in
+OAA 2.3.2 is LGPL-2.1-or-later. The frequently cited FAQ describes a
+non-commercial "community license", which held for 2.3.0 and 2.3.1; the final
+release, in June 2007, relicensed the software. The license file, the
+distribution's own licensing statement, the release notes and the per-file
+headers all agree. Details, including what the superseded license said, are in
 [`research/licensing.md`](research/licensing.md).
 
-**The Facilitator is written in Prolog, and its source was published.** Under
-the older non-commercial license the Facilitator was executable-only and could
-not be modified or disassembled. Under the LGPL, `fac.pl` — 140 KB of Prolog by
-Adam Cheyer and David Martin — ships in the distribution. A faithful
-reconstruction is therefore far more tractable than it would have been a decade
+The Facilitator is written in Prolog, and its source was published. Under the
+older non-commercial license the Facilitator was executable-only and could not
+be modified or disassembled. Under the LGPL, `fac.pl` — 140 KB of Prolog by
+Adam Cheyer and David Martin — ships in the distribution, which makes a
+faithful reconstruction far more tractable than it would have been a decade
 ago.
 
-**The historical Prolog was SICStus and Quintus, not SWI.** OAA carried an
-explicit dialect-compatibility layer and discovered the running system at
-runtime. Targeting SWI-Prolog adds a third dialect to a design that already
-expected more than one — see [`research/compatibility-matrix.md`](research/compatibility-matrix.md).
+The historical Prolog was SICStus, with Quintus as a fallback. OAA carried a
+dialect-compatibility layer and discovered the running system at runtime, so
+targeting SWI-Prolog adds a third dialect to a design that already expected
+more than one — see
+[`research/compatibility-matrix.md`](research/compatibility-matrix.md).
 
 ## Approach to the historical code
 
@@ -90,10 +88,9 @@ the documentation leaves underspecified. oaa-next code is authored
 independently rather than ported.
 
 The LGPL finding means deriving directly from OAA 2.3.2 would also be lawful,
-and that option is documented rather than dismissed — but taking it would place
-oaa-next's own license under LGPL-2.1-or-later, so it is the project owner's
-call. Until that call is made, no historical OAA source or binary is committed
-to this repository.
+and that option stays documented. Taking it would place oaa-next's own license
+under LGPL-2.1-or-later, so the choice belongs to the project owner. Until it
+is made, no historical OAA source or binary is committed here.
 
 Every subsystem will be labelled ORIGINAL, RECONSTRUCTED, MODERNIZED, NEW, or
 INTEROPERABILITY ADAPTER, so that anyone can tell where a given behaviour came
@@ -109,7 +106,7 @@ src/
   facilitator/  the Facilitator and its delegation rules
 bin/            runnable Facilitator
 examples/       runnable agents
-tests/          225 unit tests plus a live multi-process community
+tests/          unit tests, plus a live multi-process community
 research/
   sources.md                 citation index and evidence hierarchy
   chronology.md              OAA release history
@@ -126,11 +123,11 @@ Directories are created as there is something to put in them.
 
 ## License
 
-**Not yet chosen.** The project deliberately defers this until the provenance
-of any incorporated historical material is settled; see
-[`research/licensing.md`](research/licensing.md) §5. Choosing a permissive
-license before knowing what is being distributed would be exactly the mistake
-this project is trying to avoid.
+Not yet chosen. The choice waits on the provenance of any incorporated
+historical material being settled; see
+[`research/licensing.md`](research/licensing.md) §5. Picking a permissive
+license before knowing what is being distributed is the mistake this project
+is set up to avoid.
 
 ## Trademark and affiliation
 
@@ -140,7 +137,7 @@ continuation of SRI OAA, and not endorsed by or affiliated with SRI
 International.
 
 "OAA" is a registered trademark, and "Open Agent Architecture" is a trademark,
-of SRI International. The live status of those marks has not been verified, and
-the project name is itself an open question — see
+of SRI International. The live status of those marks has not been verified,
+and the project name remains an open question — see
 [`research/licensing.md`](research/licensing.md) §6. See also
 [`docs/historical/notice.md`](docs/historical/notice.md).

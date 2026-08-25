@@ -5,37 +5,32 @@ the OAA v2.x FAQ, and observation of the recovered `src/facilitator/fac.pl`,
 `compound.pl` and `translations.pl` (OAA 2.3.2, LGPL-2.1-or-later, © SRI
 International, primary authors Adam Cheyer and David Martin).
 
-This is a **behavioural specification written from observation**. It is
-deliberately a description of what the Facilitator does, not a transcription of
-how its Prolog is written, so that oaa-next's implementation can be authored
-independently from it.
+This is a behavioural specification written from observation. It describes
+what the Facilitator does and leaves aside how its Prolog is written, so that
+oaa-next's implementation can be authored independently from it.
 
 ---
 
 ## 1. The Facilitator is an ordinary agent
 
-The single most important structural fact, and the one most likely to be lost
-in a modern reimplementation: **the Facilitator is not a special kind of
-component.** It uses the same agent library as every client, registers itself
-with `oaa_Register` (on a connection whose id is `fac_listener` rather than
-`parent`), declares solvables like any agent, and handles incoming requests
-through the same `oaa_AppDoEvent` callback mechanism any agent uses.
+The structural fact most likely to be lost in a modern reimplementation is
+that the Facilitator is an ordinary component. It uses the same agent library
+as every client, registers itself with `oaa_Register` on a connection whose id
+is `fac_listener` in place of `parent`, declares solvables like any agent, and
+handles incoming requests through the same `oaa_AppDoEvent` callback any agent
+uses.
 
-Two consequences follow directly, and both are architecture rather than
-accident:
+A Facilitator can therefore be a client of another Facilitator: starting one
+with `oaa_connect` pointed at a parent makes it a *node* facilitator, and that
+is the entire mechanism behind multi-facilitator hierarchies, with no separate
+federation protocol. Anything a client can do to a solvable it can also do to
+the Facilitator's solvables, subject to permissions, so capability discovery
+goes through the same door as everything else: it is a query.
 
-- A Facilitator can be a client of another Facilitator. Starting one with
-  `oaa_connect` pointed at a parent makes it a *node* facilitator. This is the
-  entire mechanism behind multi-facilitator hierarchies — there is no separate
-  federation protocol.
-- Anything a client can do to a solvable, it can do to the Facilitator's
-  solvables, subject to permissions. Capability discovery is not a privileged
-  API; it is a query.
+oaa-next should therefore implement the Facilitator as an agent that declares
+the facilitator solvables, and give it no distinct service type of its own.
 
-**oaa-next must not implement the Facilitator as a distinct service type.** It
-should be an agent that happens to declare the facilitator solvables.
-
-## 2. The registry is a data solvable, not a special structure
+## 2. The registry is a data solvable
 
 The Facilitator's knowledge of the community is held in ordinary data
 solvables, maintained with the same local add/remove primitives that back
@@ -52,21 +47,21 @@ solvables, maintained with the same local add/remove primitives that back
 | `data(Item, Data)` | data | yes | OAA 1.0 backwards compatibility |
 | `icl_type(Type, SuperType)` | data | yes | The ICL type hierarchy — built-in entries, **extensible at runtime** |
 
-Three things in that table are worth pausing on.
+Some entries in that table repay attention.
 
-**`agent_data/6` being a writable data solvable** means an agent's status and
-capability set are queryable by any client through the normal `oaa_Solve` path.
-Registration, deregistration and re-declaration are data maintenance operations
-on this relation. Reconstructing this faithfully means resisting the urge to
-build a bespoke registry object.
+`agent_data/6` is a writable data solvable, so an agent's status and
+capability set are queryable by any client through the normal `oaa_Solve`
+path. Registration, deregistration and re-declaration are data maintenance
+operations on this relation. Reconstructing it faithfully means resisting the
+urge to build a bespoke registry object.
 
-**`icl_type/2` being a writable data solvable** means the ICL type hierarchy is
-not hard-coded. Supertype relations used during matchmaking can be extended at
-runtime by adding facts. This is a real extensibility point that a modern
-reimplementation would very likely miss and replace with a static enum.
+`icl_type/2` is a writable data solvable too, so the ICL type hierarchy is
+open. Supertype relations used during matchmaking can be extended at runtime
+by adding facts — a real extensibility point that a modern reimplementation
+would likely replace with a static enum.
 
-**`can_solve/2` being a procedure, not data,** means lookup is computed against
-the current registry at call time rather than being a cached index.
+`can_solve/2` is a procedure. Lookup is computed against the current registry
+at call time, rather than read from a cached index.
 
 ## 3. External event protocol
 
@@ -179,8 +174,8 @@ carry-over. The Facilitator was expected to serve agents built against older
 libraries.
 
 oaa-next does not need OAA 1.0 compatibility, but it should keep a comparable
-seam, because the historical lesson is that the Facilitator, not the client,
-absorbed protocol drift.
+seam, because the historical lesson is that protocol drift was absorbed by
+the Facilitator and kept away from the client.
 
 ## 8a. A consequence of typed solvables worth knowing
 
@@ -202,8 +197,8 @@ asks the real question and matches.
 
 This follows directly from Developer's Guide §5.2, so it is almost certainly
 historical behaviour rather than an artefact of this implementation. It has a
-practical consequence: `can_solve` is a query about *a goal*, not about a
-predicate signature, and callers probing for a capability must supply a
+practical consequence: `can_solve` asks about a goal rather than about a
+predicate signature, so callers probing for a capability must supply a
 representative goal. There is no recovered evidence of how the historical
 tools (Debug, Monitor) handled this, which is worth checking against the
 Reference Manual.
@@ -217,5 +212,5 @@ Reference Manual.
 - The exact semantics of the `Status` field beyond `ready` and `open`.
 - How `test/1` (test-locatable queries) is evaluated on a remote facilitator.
 - Whether the OAA Reference Manual documents facilitator solvables beyond the
-  initial set above. **Retrieving the Reference Manual would likely close
-  several of these.**
+  initial set above. Retrieving the Reference Manual would likely close
+  several of these.

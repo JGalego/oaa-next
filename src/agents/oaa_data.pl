@@ -25,21 +25,17 @@ as the same thing as a relational database table, queried through oaa_Solve
 like any other solvable and maintained through oaa_AddData, oaa_RemoveData and
 oaa_ReplaceData.
 
-Two behaviours here are not obvious and are historically load-bearing:
+Ownership: the library records which agent created each fact, and uses that
+record to remove an agent's facts when it goes offline.  Agents do not have to
+model this themselves, and the owner/1 parameter of oaa_Solve can query it.
 
-  * **Ownership.**  The library records which agent created each fact, and
-    uses that record to remove an agent's facts when it goes offline.  Data
-    ownership is transparent -- agents do not have to model it themselves --
-    and it can be queried with the owner/1 parameter of oaa_Solve.
-
-  * **Order.**  New facts are appended, so a subsequent query returns them
-    last, unless at_beginning(true) is given.  Removal takes only the first
-    unifying fact unless do_all(true) is given.
+Order: new facts are appended, so a subsequent query returns them last, unless
+at_beginning(true) is given.  Removal takes only the first unifying fact
+unless do_all(true) is given.
 
 Replacement is atomic: nothing may read or write between the removal and the
-addition.  In this single-threaded implementation that follows from the two
-operations happening within one predicate, but it is stated because a
-threaded implementation would have to arrange it deliberately.
+addition.  Here that follows from both operations happening inside one
+predicate; a threaded implementation would have to arrange it.
 */
 
 :- dynamic fact_seq/1.
@@ -65,7 +61,7 @@ next_seq(N) :-
 
 %!  oaa_data_add(+Owner, +Clause, +Params, -Ok) is det.
 %
-%   Record Clause, in precisely the form given.  Params may carry:
+%   Record Clause in the form given.  Params may carry:
 %
 %     * at_beginning(true)   -- prepend rather than append
 %     * single_value(true)   -- at most one fact for this solvable; a new one
@@ -138,7 +134,7 @@ oaa_data_replace(Owner, Clause1, Clause2, Params, Ok) :-
     (   Count > 0
     ->  oaa_data_add(Owner, Clause2, Params, Ok)
     ;   %  Nothing matched, so nothing is replaced.  The historical libraries
-        %  treat this as an unsuccessful completion, which is what
+        %  treat this as an unsuccessful completion, which
         %  get_satisfiers reports on.
         Ok = false
     ).

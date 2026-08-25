@@ -57,5 +57,5 @@ Douglas Moran, Luc Julia, Gowang-Lo Lee, Philip Cohen and others credited in
 the papers cited in [`../../research/sources.md`](../../research/sources.md).
 
 Any resemblance between oaa-next's structure and the original is intentional
-and is the point of the project. Any errors in reconstructing it are this
+and is what the project is for. Any errors in reconstructing it are this
 project's own.

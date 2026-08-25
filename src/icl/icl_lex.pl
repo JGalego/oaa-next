@@ -5,10 +5,10 @@
  *  observation of the OAA 2.3.2 ICL grammars (ANTLR OaaPrologNetParse.g,
  *  PCCTS parser.g).  Written independently; see research/licensing.md.
  *
- *  ICL is a restricted term language, NOT full Prolog.  There is no operator
- *  table, no arithmetic, no clause syntax.  That restriction is enforced here
- *  and in icl_parse.pl, and is deliberate: a full Prolog reader would accept
- *  a strictly larger language than the historical system did.
+ *  ICL is a restricted term language.  It has no operator table, no
+ *  arithmetic and no clause syntax.  This module and icl_parse.pl enforce
+ *  that: a full Prolog reader would accept a strictly larger language than
+ *  the historical system did.
  */
 
 :- module(icl_lex,
@@ -59,10 +59,9 @@ tokens([]) -->
 % ---------------------------------------------------------------- whitespace
 
 %   blanks(-Seen) skips whitespace and comments, reporting whether any were
-%   present.  The distinction matters for one token only: an opening
-%   parenthesis that immediately follows a name introduces an argument list,
-%   whereas one preceded by layout opens a grouped term.  Standard Prolog
-%   readers make the same distinction.
+%   present.  One token depends on it: an opening parenthesis immediately
+%   following a name introduces an argument list, while one preceded by
+%   layout opens a grouped term.  Standard Prolog readers draw the same line.
 
 blanks(true)  --> blank, !, blanks(_).
 blanks(true)  --> comment, !, blanks(_).
@@ -120,7 +119,7 @@ ident_rest([]) --> [].
 ident_code(C) :- code_type(C, csym).
 
 %   Symbolic atoms.  ICL has no operator table, so these are only ever read as
-%   plain atoms -- which is what makes '=' or ':-' a parse error in term
+%   plain atoms, which makes '=' or ':-' a parse error in term
 %   position rather than an operator application.
 symbol_chars([C|Cs]) --> [C], { symbol_code(C) }, !, symbol_chars(Cs).
 symbol_chars([]) --> [].

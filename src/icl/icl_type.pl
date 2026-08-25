@@ -36,16 +36,13 @@
 
     list
 
-Two properties of this hierarchy are easy to get wrong and are load-bearing:
+The hierarchy is a lattice: `icldataq/1` and `icldataq/3` descend from both
+`string` and `compound`.  A single-parent representation gives wrong
+matchmaking answers.
 
-  1. **It is not a tree.** `icldataq/1` and `icldataq/3` are subtypes of both
-     `string` and `compound`.  A single-parent representation gives wrong
-     matchmaking answers.
-
-  2. **It is extensible at runtime.**  The historical Facilitator declares
-     `icl_type(Type, SuperType)` as a *writable data solvable*, so the
-     hierarchy can be added to while a community is running.  The edge
-     relation here is therefore dynamic, not a static table.
+It can also be extended while a community is running.  The historical
+Facilitator declares `icl_type(Type, SuperType)` as a writable data solvable,
+so the edge relation here is dynamic.
 
 Types are manipulated by *key*.  A key is either a plain atom (`integer`,
 `atom`, `list`, ...) or Functor/Arity for the parametric types
@@ -56,8 +53,8 @@ separately.
 
 :- dynamic icl_type_edge/2.
 
-%   Built-in edges.  These are seeded rather than compiled in so that they can
-%   be extended, and in principle removed, at runtime.
+%   Built-in edges, seeded so that they can be extended, and in principle
+%   removed, at runtime.
 
 builtin_edge(number,       atomic).
 builtin_edge(string,       atomic).
@@ -79,7 +76,7 @@ builtin_edge(mime/2,       compound).
 %!  icl_type_add(+SubKey, +SuperKey) is det.
 %!  icl_type_remove(+SubKey, +SuperKey) is det.
 %
-%   Extend or retract the hierarchy at runtime.  This is what backs the
+%   Extend or retract the hierarchy at runtime.  This backs the
 %   Facilitator's writable `icl_type/2` data solvable.
 
 icl_type_add(Sub, Super) :-
@@ -120,7 +117,7 @@ icl_type_key(Spec, Key) :-
 %!  icl_type_of(+Value, -TypeKey) is semidet.
 %
 %   The most specific type key of a bound Value.  Fails for an unbound
-%   variable: an unbound argument has no type, which is why `argspecs` marks
+%   variable: an unbound argument has no type, so `argspecs` marks
 %   optionality separately.
 
 icl_type_of(V, _) :-
@@ -173,7 +170,7 @@ reaches(Sub, Super, Seen) :-
 %
 %   For parametric types the check has two parts: the type key must be a
 %   subtype of the spec's key, and any *bound* arguments of the spec must
-%   match the value.  That is what makes `mime('text/plain', _)` narrower than
+%   match the value, so that `mime('text/plain', _)` is narrower than
 %   `mime(_, _)`.
 
 icl_conforms(_Value, Spec) :-

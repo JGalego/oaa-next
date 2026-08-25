@@ -25,28 +25,22 @@ A trigger says: when some condition is met, take some action.  There are four
 types -- `comm`, `data`, `task` and `time` -- and an agent can install one
 locally on itself, on its facilitator, or on a peer.
 
-Two structural points from the Developer's Guide are reproduced here because
-they are architecture, not detail:
+Triggers are themselves data solvables.  Installing one records it as an
+instance of `oaa_trigger/5`, a built-in data solvable declared implicitly for
+every agent, so an agent can query its own installed triggers with oaa_Solve
+as it would query any other data.  Triggers live in the ordinary data store
+here for the same reason.
 
-  * **Triggers are data solvables.**  When a trigger is installed, the agent
-    library records it as an instance of a built-in data solvable,
-    `oaa_trigger/5`, declared implicitly for every agent.  An agent can
-    therefore query its own installed triggers with oaa_Solve, exactly as it
-    would query any other data solvable.  That reflexivity is preserved here:
-    triggers live in the ordinary data store.
+The library does not check a task trigger's condition.  The Guide states this
+explicitly, and it differs from OAA 1.x: application code checks the condition
+at whatever times suit it and calls oaa_CheckTriggers once it holds.  An agent
+offering a task trigger learns that one has been installed through the
+app_setup_trigger callback, and can then set up whatever it needs to notice
+the condition.
 
-  * **Task triggers are not checked by the library.**  This differs from OAA
-    1.x and is stated explicitly in the Guide: the 2.x library does not
-    evaluate a task trigger's condition.  Application code checks it, at
-    whatever times suit the application, and calls oaa_CheckTriggers when it
-    becomes true.  An agent offering a task trigger can learn that one has
-    been installed through the app_setup_trigger callback, so that it can set
-    up whatever machinery it needs to notice the condition.
-
-`time` triggers are deliberately absent from this module.  They were never in
-the historical agent libraries either: they are supplied by a separate Alarm
-agent, and are available only when that agent is connected.  Keeping that
-separation is a fidelity decision, not an omission.
+`time` triggers are absent from this module.  They were never in the
+historical agent libraries either: a separate Alarm agent supplies them, and
+they are available only while that agent is connected.
 */
 
 :- dynamic trigger_counter/1.
@@ -115,7 +109,7 @@ oaa_triggers(Triggers) :-
 %
 %   The Developer's Guide is specific about the replace case: the condition
 %   is written as replace(OldPattern, NewPattern), so that both the old and
-%   the new values are bound when the action runs -- which is what makes a
+%   the new values are bound when the action runs, letting a
 %   trigger able to say "fire when the distance became less than 100".
 
 oaa_note_data_change(Operation, Clause) :-
@@ -246,8 +240,8 @@ fire(_Bound, Action, Params, Id) :-
 %   though it were wrapped in oaa_Interpret.
 %
 %   Inside a trigger, oaa_Solve's reply parameter defaults to `none` rather
-%   than the usual `true`: a trigger action is a notification, not a query
-%   whose answer someone is waiting for.
+%   than the usual `true`, since a trigger action is a notification and
+%   nobody is waiting on its answer.
 
 run_action(Action) :-
     (   solve_action(Action, Goal, Params0)
