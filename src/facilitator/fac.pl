@@ -146,6 +146,8 @@ fac_stop :-
     retractall(outstanding(_)),
     retractall(comp(_, _, _, _, _, _)),
     retractall(comp_current(_, _)),
+    retractall(meta_pending(_, _, _, _, _, _)),
+    retractall(meta_pending_sel(_, _)),
     retractall(fac_option(_)).
 
 %!  fac_main is det.
@@ -343,13 +345,41 @@ merge_goal_params(Address, GoalParams, Params, Merged) :-
 dispatch_goal(ReplyTo, RequesterId, Goal, Params) :-
     fac_registry(Registry),
     fac_select(Goal, Registry, Params, RequesterId, Candidates),
-    restrict_to_address(Candidates, Params, RequesterId, Selected0),
-    apply_prioritize_meta(Goal, Params, Registry, Selected0, Selected),
+    restrict_to_address(Candidates, Params, RequesterId, Selected),
+    (   meta_goal(Goal)
+    ->  %  A consultation is itself a goal.  Sending it back through the
+        %  meta hooks would not terminate.
+        continue_dispatch(ReplyTo, RequesterId, Goal, Params, Selected)
+    ;   Selected == [],
+        meta_provider(Registry, lookup, LookupId)
+    ->  start_meta(lookup, LookupId, ReplyTo, RequesterId, Goal, Params, [])
+    ;   Selected \== [],
+        meta_provider(Registry, prioritize, MetaId)
+    ->  start_meta(prioritize, MetaId, ReplyTo, RequesterId, Goal, Params,
+                   Selected)
+    ;   continue_dispatch(ReplyTo, RequesterId, Goal, Params, Selected)
+    ).
+
+continue_dispatch(ReplyTo, RequesterId, Goal, Params, Selected) :-
     (   Selected == []
     ->  finish_request(ReplyTo, Goal, Params, [], [], [])
     ;   fac_dispatch_plan(Selected, Params, Mode, Batch),
         start_request(ReplyTo, RequesterId, Goal, Params, Mode, Selected, Batch)
     ).
+
+meta_goal(Goal) :-
+    nonvar(Goal),
+    functor(Goal, meta, 5).
+
+%   The highest-utility client agent offering a meta capability of this type.
+%   The facilitator itself is skipped: it declares no meta solvables, and a
+%   facilitator consulting itself would be a loop.
+
+meta_provider(Registry, Type, Id) :-
+    fac_meta_agents(Registry, Type, Providers),
+    member(candidate(Id, _, _), Providers),
+    Id \== 0,
+    !.
 
 requester_id(ConnId, Id) :-
     (   agent_entry(ConnId, Id, _, _, _, _) -> true ; Id = 0 ).
@@ -387,28 +417,106 @@ address_id(addr(_, Id), _, Id) :- !.
 address_id(Id, _, Id) :-
     integer(Id).
 
-%   A prioritize meta-agent may reorder the candidate list.  It is optional
-%   and fallible: when none returns a usable ordering, the Facilitator's own
-%   utility ordering stands.  Developer's Guide 5.6.
+% ------------------------------------------------------------- meta-agents
+%
+%   Meta-agents supply domain knowledge the Facilitator does not have.  They
+%   declare meta(Type, +Goal, +Params, +FacInfo, -Result) and are consulted in
+%   utility order.  Developer's Guide 5.6.
+%
+%   Two of the four hooks are wired here:
+%
+%     * `prioritize` -- given the Facilitator's sorted candidate list in
+%       FacInfo, return a reordered list.  User preference, load balancing.
+%     * `lookup` -- given a goal no connected agent can solve, find and start
+%       an agent that can, returning true once it has connected.  This is what
+%       makes the community extensible at request time.
+%
+%   Both are optional and fallible.  When no meta-agent is registered, or one
+%   returns nothing the Facilitator can use, the Facilitator's own behaviour
+%   stands -- its utility ordering for `prioritize`, plain failure for
+%   `lookup`.  Nothing below this point depends on how a meta-agent reached
+%   its answer, which is why an LLM can be one without the Facilitator
+%   knowing.
+%
+%   Consultation is a dispatch like any other, answered to a meta(...) reply
+%   tag, so the Facilitator never blocks on the agent it is asking.
 
-apply_prioritize_meta(Goal, Params, Registry, Selected, Reordered) :-
-    (   fac_meta_agents(Registry, prioritize, [candidate(MetaId, _, _)|_]),
-        MetaId \== 0,
-        meta_reorder(MetaId, Goal, Params, Selected, Result)
-    ->  Reordered = Result
-    ;   Reordered = Selected
+:- dynamic meta_pending/6.      % PendingId, Type, ReplyTo, ReqId, Goal, Params
+:- dynamic meta_pending_sel/2.  % PendingId, Selected
+:- dynamic meta_counter/1.
+
+meta_counter(0).
+
+next_meta_id(Id) :-
+    retract(meta_counter(N)),
+    Id is N + 1,
+    assertz(meta_counter(Id)).
+
+start_meta(Type, MetaId, ReplyTo, RequesterId, Goal, Params, Selected) :-
+    next_meta_id(PendingId),
+    assertz(meta_pending(PendingId, Type, ReplyTo, RequesterId, Goal, Params)),
+    assertz(meta_pending_sel(PendingId, Selected)),
+    fac_info(Type, Selected, FacInfo),
+    Consult = meta(Type, Goal, Params, FacInfo, _Result),
+    dispatch_goal(meta(PendingId), RequesterId, Consult,
+                  [address(MetaId), solution_limit(1)]).
+
+%   FacInfo carries what the Facilitator knows and the meta-agent is being
+%   asked to improve on: for prioritize, the sorted candidate list.
+
+fac_info(prioritize, Selected, Ids) :-
+    findall(Id, member(candidate(Id, _, _), Selected), Ids).
+fac_info(lookup, _Selected, []).
+
+meta_replied(PendingId, Solutions) :-
+    (   retract(meta_pending(PendingId, Type, ReplyTo, ReqId, Goal, Params)),
+        retract(meta_pending_sel(PendingId, Selected))
+    ->  meta_result(Solutions, Result),
+        meta_continue(Type, Result, ReplyTo, ReqId, Goal, Params, Selected)
+    ;   true
     ).
 
-%   Consulting a meta-agent means asking a client and using its answer.  The
-%   Facilitator cannot block on that reply without risking a wait on an agent
-%   that is itself waiting on the Facilitator, so the consultation is made
-%   against the meta-agent's declared solvable synchronously only when the
-%   meta-agent is the facilitator itself; otherwise the request is issued and
-%   the current ordering stands for this goal.  See
-%   research/implementation-notes/facilitator.md.
+meta_result(Solutions, Result) :-
+    (   member(meta(_, _, _, _, R), Solutions)
+    ->  Result = R
+    ;   Result = '$none'
+    ).
 
-meta_reorder(_MetaId, _Goal, _Params, _Selected, _Result) :-
-    fail.
+%   A prioritize result is a list of agent ids in the order the meta-agent
+%   wants them tried.  Ids it does not mention keep their place behind the
+%   ones it does, and ids that are not candidates are ignored.
+
+meta_continue(prioritize, Result, ReplyTo, ReqId, Goal, Params, Selected) :-
+    !,
+    (   is_list(Result)
+    ->  reorder_candidates(Result, Selected, Reordered)
+    ;   Reordered = Selected
+    ),
+    continue_dispatch(ReplyTo, ReqId, Goal, Params, Reordered).
+
+%   A lookup meta-agent returning true has connected an agent that can solve
+%   the goal, so selection is worth repeating.  Anything else means it could
+%   not, and the request fails as it would have anyway.
+
+meta_continue(lookup, Result, ReplyTo, ReqId, Goal, Params, _Selected) :-
+    !,
+    (   Result == true
+    ->  fac_registry(Registry),
+        fac_select(Goal, Registry, Params, ReqId, Candidates),
+        restrict_to_address(Candidates, Params, ReqId, Selected)
+    ;   Selected = []
+    ),
+    continue_dispatch(ReplyTo, ReqId, Goal, Params, Selected).
+
+meta_continue(_Type, _Result, ReplyTo, ReqId, Goal, Params, Selected) :-
+    continue_dispatch(ReplyTo, ReqId, Goal, Params, Selected).
+
+reorder_candidates(Order, Selected, Reordered) :-
+    findall(C,
+            ( member(Id, Order), member(C, Selected), C = candidate(Id, _, _) ),
+            Named),
+    exclude([candidate(Id, _, _)]>>memberchk(Id, Order), Selected, Unnamed),
+    append(Named, Unnamed, Reordered).
 
 start_request(ReplyTo, RequesterId, Goal, Params, Mode, Selected, Batch) :-
     oaa_next_goal_id(FacGoalId),
@@ -530,7 +638,10 @@ finish_request(client(ConnId, GoalId), Goal, Params, Requestees, Solvers, Sols) 
     !,
     finish_solve(ConnId, GoalId, Goal, Params, Requestees, Solvers, Sols).
 finish_request(compound(CompId), _Goal, _Params, Requestees, Solvers, Sols) :-
+    !,
     compound_replied(CompId, Requestees, Solvers, Sols).
+finish_request(meta(PendingId), _Goal, _Params, _Requestees, _Solvers, Sols) :-
+    meta_replied(PendingId, Sols).
 
 finish_solve(ConnId, GoalId, Goal, Params, Requestees, Solvers, Solutions0) :-
     dedupe(Solutions0, Params, Solutions1),

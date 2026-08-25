@@ -134,6 +134,22 @@ This is a genuine architectural feature — the community is *extensible at
 request time* — and it is the natural attachment point for any modern
 "discover and launch a capability" mechanism.
 
+## 5a. Consulting a meta-agent without deadlocking
+
+The obvious way to consult a meta-agent is to ask it and wait. A
+single-threaded Facilitator cannot: the agent it is waiting on may itself be
+waiting on the Facilitator.
+
+oaa-next resolves this by never waiting. Every dispatch carries a reply tag
+saying where its answer goes — the client that asked, a compound goal
+execution part-way through its branches, or a meta consultation. A
+consultation is therefore an ordinary delegated request, and the Facilitator
+returns to its event loop while the meta-agent thinks. When the answer
+arrives, selection resumes from where it left off.
+
+The same mechanism carries compound goals, which is why both stopped being
+hard at the same time.
+
 ## 6. Compound goals
 
 `compound.pl` handles goals that are not atomic requests. When compiled for

@@ -27,7 +27,6 @@ dropped:
 |---|---|
 | Multi-facilitator hierarchies, `propagate` | Depends on compound-goal routing and on referred-goal continuations |
 | `direct_connect` | An optimisation, and explicitly limited even historically |
-| Meta-agent consultation | The hook is located; wiring it means the Facilitator making a request of a client and awaiting the reply without deadlocking against it |
 | Time triggers | Never in the historical libraries either — they need the separate Alarm agent |
 | `test`-locatable queries | Only meaningful with multiple facilitators |
 | Delayed solutions | `oaa_DelaySolution` and friends; the synchronous path came first |
@@ -166,7 +165,9 @@ an equivalent seam rather than assume a single Prolog.
 | Propagation | `propagate([up/1, down/1, up_limit/1, down_limit/1])`; `up`/`down` take `true`, `false`, `if_no_solvers`; default is no propagation | DG §6.10 | Same defaults | deferred |
 | Referred goals | Carry the originating facilitator's address as continuation information; the responding agent's identity returns to the originator | DG §10.2 | Same | deferred |
 | Direct connect | `direct_connect(true)` bypasses the facilitator for message flow while the facilitator still selects the provider; requires a provider listener socket registered before `oaa_Register`; single-provider, single-facilitator, `oaa_Solve` only; `time_limit` and `parallel_ok` ignored | DG §10.1 | Same, incl. limitations | deferred |
-| Meta-agents | Agents declaring `meta(Type, +Goal, +Params, +FacInfo, -Result)` with `Type` in `lookup`, `prioritize`, `plan_query`, `execute_plan`; consulted in utility order until one returns usable information, else the facilitator's own default | DG §5.6 | Same — see note below | deferred |
+| Meta-agents: `prioritize` | Given the Facilitator's sorted candidate list, return a reordering | DG §5.6 | Consulted as an ordinary dispatch answered to a `meta(...)` reply tag | reconstructed |
+| Meta-agents: `lookup` | Given a goal nothing can solve, find and start an agent that can; selection is repeated on success | DG §5.6 | Same | reconstructed |
+| Meta-agents: `plan_query`, `execute_plan` | Refine or take over the Facilitator's routing plan for a compound goal | DG §5.6 | Not yet | deferred |
 | Compound goals | Facilitator decomposes a compound request and delegates the subrequests individually | DG §4.3 | Breadth-first branch walk, driven one dispatch at a time so the Facilitator never blocks on an agent | reconstructed |
 | Conjunction join | Variables shared between conjuncts bind the later ones from the earlier ones' solutions | SRC, logic-programming semantics | Same; branches copy so siblings stay independent | reconstructed |
 | Nested parameter lists | A subgoal may carry its own address and parameters inside a compound goal | DG §6.15, Reference Manual | `Address:Goal::Params` disassembly per `oaa_DisassembleGoal` | reconstructed |
