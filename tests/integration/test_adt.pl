@@ -18,9 +18,9 @@ test(generates_a_loadable_agent,
      [setup(tmp_file(agent, F)), cleanup(catch(delete_file(F), _, true))]) :-
     new_agent(widget, F, []),
     read_file_to_string(F, S, []),
-    sub_string(S, _, _, _, "solvable(widget_greet"),
-    sub_string(S, _, _, _, "oaa_agent_run(widget"),
-    sub_string(S, _, _, _, "oaa_run"),
+    once(sub_string(S, _, _, _, "solvable(widget_greet")),
+    once(sub_string(S, _, _, _, "oaa_agent_run(widget")),
+    once(sub_string(S, _, _, _, "oaa_run")),
     %  It has to be syntactically valid Prolog, or the developer's first act
     %  is fixing our template.
     catch(once(read_terms(F, Terms)), _, fail),
