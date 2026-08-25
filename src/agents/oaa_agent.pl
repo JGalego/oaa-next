@@ -27,7 +27,12 @@
 
             oaa_handle_event/2,         % +ConnId, +Event
             oaa_agent_reset/0,
-            oaa_next_goal_id/1          % -GoalId
+            oaa_next_goal_id/1,         % -GoalId
+
+            oaa_delay_solution/1,       % +Id
+            oaa_return_delayed_solutions/2, % +Id, +Solutions
+            oaa_add_delayed_context_params/3, % +Id, +Params, -NewParams
+            oaa_current_context/1       % -Contexts
           ]).
 
 :- use_module('../icl/icl_term').
@@ -51,6 +56,9 @@ a client of another facilitator with no separate federation protocol.
 */
 
 :- dynamic my_name/1.
+:- dynamic delay_flag/1.
+:- dynamic delayed_request/5.   % Id, ConnId, GoalId, Goal, Params
+:- dynamic active_context/1.
 :- dynamic my_local_id/1.
 :- dynamic my_solvable/1.
 :- dynamic goal_counter/1.
@@ -83,6 +91,9 @@ oaa_agent_reset :-
     retractall(my_local_id(_)),
     retractall(my_solvable(_)),
     retractall(parent_conn(_)),
+    retractall(delay_flag(_)),
+    retractall(delayed_request(_, _, _, _, _)),
+    retractall(active_context(_)),
     oaa_data_clear.
 
 % ------------------------------------------------------------ connect
@@ -221,7 +232,14 @@ send_to_parent(Event) :-
 
 register_trigger_executors :-
     oaa_register_callback(trigger_solve, oaa_agent:trigger_solve_action),
-    oaa_register_callback(trigger_interpret, oaa_agent:trigger_interpret_action).
+    oaa_register_callback(trigger_interpret, oaa_agent:trigger_interpret_action),
+    oaa_register_callback(trigger_route, oaa_agent:trigger_route_action).
+
+trigger_route_action(Mode, Type, Condition, Action, Params) :-
+    oaa_next_goal_id(GoalId),
+    wire_params(Params, WireParams),
+    send_to_parent(ev_update_trigger(GoalId, Mode, Type, Condition, Action,
+                                     WireParams)).
 
 trigger_solve_action(Goal, Params) :-
     ignore(oaa_solve(Goal, Params)).
@@ -304,7 +322,8 @@ solve_strategy(query,  [parallel_ok(true)]).
 solve_strategy(action, [parallel_ok(false), solution_limit(1)]).
 solve_strategy(inform, [parallel_ok(true), reply(none)]).
 
-oaa_solve_remote(Goal, Params) :-
+oaa_solve_remote(Goal, Params0) :-
+    add_active_contexts(Params0, Params),
     oaa_next_goal_id(GoalId),
     bind_return_param(get_goal_id(GoalId), Params),
     icl_get_param_value(reply(Reply), Params, true),
@@ -320,6 +339,40 @@ oaa_solve_remote(Goal, Params) :-
     ->  true
     ;   await_solutions(GoalId, Goal, Params)
     ).
+
+%!  oaa_current_context(-Contexts) is det.
+%
+%   The context parameters in force for the request being handled.
+%
+%   Developer's Guide 6.12: a context/1 parameter given to oaa_Solve is
+%   propagated to every subsequent call to oaa_Solve that the first one leads
+%   to, whichever agent makes it.  A notification agent asked to reach someone
+%   may call a calendar agent, a database agent and a phone agent; a context
+%   given once ties the whole chain together.
+
+oaa_current_context(Contexts) :-
+    findall(context(C), active_context(C), Contexts).
+
+add_active_contexts(Params, Complete) :-
+    oaa_current_context(Contexts),
+    (   Contexts == []
+    ->  Complete = Params
+    ;   icl_param_apply_defaults(Contexts, Params, Complete)
+    ).
+
+%   Contexts arriving with a request are in force while it is being handled,
+%   including inside any nested request the handler makes.
+
+with_request_context(Params, Goal) :-
+    findall(C, member_context(Params, C), Cs),
+    setup_call_cleanup(
+        forall(member(C, Cs), assertz(active_context(C))),
+        Goal,
+        forall(member(C, Cs), retract(active_context(C)))).
+
+member_context(Params, C) :-
+    icl_param_expand(Params, Expanded),
+    member(context(C), Expanded).
 
 %   Return parameters carry a variable that the call binds.  They are for the
 %   caller and must not travel to the facilitator.
@@ -530,6 +583,13 @@ oaa_handle_event(_ConnId, ev_update_data(GoalId, Mode, Payload, Params)) :- !,
     ->  true
     ;   send_to_parent(ev_data_applied(GoalId, Ok))
     ).
+oaa_handle_event(_ConnId, ev_update_trigger(_GoalId, Mode, Type, Cond, Action, Params)) :- !,
+    %  The facilitator has routed a trigger installation here on some other
+    %  agent's behalf.  Developer's Guide 8.2.
+    (   Mode == add
+    ->  oaa_install_trigger(Type, Cond, Action, Params)
+    ;   oaa_remove_trigger(Type, Cond, Action, [address(self)])
+    ).
 oaa_handle_event(_ConnId, ev_registered(LocalId, _Address)) :- !,
     retractall(my_local_id(_)),
     assertz(my_local_id(LocalId)).
@@ -543,13 +603,65 @@ oaa_handle_event(_ConnId, Event) :-
 %   which is the default; delaying them is a separate mechanism.
 
 solve_for_requester(ConnId, GoalId, Goal, Params) :-
-    findall(Solution, local_solution(Goal, Params, Solution), Solutions0),
+    retractall(delay_flag(_)),
+    with_request_context(Params,
+        findall(Solution, local_solution(Goal, Params, Solution), Solutions0)),
+    (   retract(delay_flag(Id))
+    ->  %  The handler asked for more time.  Nothing is returned now; the
+        %  request is remembered until oaa_ReturnDelayedSolutions supplies an
+        %  answer.  Developer's Guide 5.4.
+        retractall(delayed_request(Id, _, _, _, _)),
+        assertz(delayed_request(Id, ConnId, GoalId, Goal, Params))
+    ;   send_solutions(ConnId, GoalId, Goal, Params, Solutions0)
+    ).
+
+send_solutions(ConnId, GoalId, Goal, Params, Solutions0) :-
     apply_solution_limit(Solutions0, Params, Solutions),
     (   icl_get_param_value(reply(none), Params)
     ->  true
     ;   reply_goal(Goal, Params, ReplyGoal),
         com_send(ConnId,
                  ev_solved(GoalId, [], [], ReplyGoal, Params, Solutions))
+    ).
+
+%!  oaa_delay_solution(+Id) is det.
+%
+%   Called from inside a request handler to say that solutions will come
+%   later.  Id is any term the agent chooses to identify this request by.
+%
+%   The Developer's Guide gives a robot asked to reach a position as the
+%   example: the goal cannot be achieved quickly, and updates on progress
+%   arrive asynchronously, so the handler returns at once and answers when it
+%   knows.  To the requester none of this is visible -- its oaa_Solve blocks
+%   until the robot has succeeded or given up, exactly as for any other goal.
+
+oaa_delay_solution(Id) :-
+    retractall(delay_flag(_)),
+    assertz(delay_flag(Id)).
+
+%!  oaa_return_delayed_solutions(+Id, +Solutions) is det.
+%
+%   Answer a delayed request.  An empty list is failure, which is how the
+%   robot reports that it gave up.
+
+oaa_return_delayed_solutions(Id, Solutions) :-
+    (   retract(delayed_request(Id, ConnId, GoalId, Goal, Params))
+    ->  send_solutions(ConnId, GoalId, Goal, Params, Solutions)
+    ;   true
+    ).
+
+%!  oaa_add_delayed_context_params(+Id, +Params, -NewParams) is det.
+%
+%   Mix the delayed request's context parameters into an outgoing request.
+%   Work done on behalf of a delayed request happens outside the handler that
+%   received it, so the context that would otherwise propagate automatically
+%   has to be reattached by hand.
+
+oaa_add_delayed_context_params(Id, Params, NewParams) :-
+    (   delayed_request(Id, _, _, _, Original)
+    ->  findall(context(C), member_context(Original, C), Contexts),
+        icl_param_apply_defaults(Contexts, Params, NewParams)
+    ;   NewParams = Params
     ).
 
 %   Message bloat: from OAA 2.3.2 the goal is not repeated in the reply; a

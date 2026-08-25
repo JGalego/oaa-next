@@ -29,7 +29,6 @@ dropped:
 | `direct_connect` | An optimisation, and explicitly limited even historically |
 | Time triggers | Never in the historical libraries either — they need the separate Alarm agent |
 | `test`-locatable queries | Only meaningful with multiple facilitators |
-| Delayed solutions | `oaa_DelaySolution` and friends; the synchronous path came first |
 
 Findings from the implementation itself live in the notes rather than here:
 `can_solve` with a wholly unbound goal cannot match a solvable declaring
@@ -139,7 +138,7 @@ an equivalent seam rather than assume a single Prolog.
 | Types | `comm`, `data`, `task`, `time` | DG §4.3.5, FAQ §2.5 | Same four | reconstructed |
 | API | `oaa_AddTrigger(Type, Condition, Action, Params)` / `oaa_RemoveTrigger/4` | DG §8.1, §8.6 | Same | reconstructed |
 | Implementation | All triggers are stored as instances of a built-in data solvable `oaa_trigger/5`, so installed triggers are queryable via `oaa_Solve` | DG §4.3.5 | Same — an elegant reflexivity worth preserving | reconstructed |
-| Placement | Local, on the facilitator, or on a peer; default `['self']` for `comm` and `time`; `data`/`task` route by unification like a request | DG §8.2 | Same | reconstructed |
+| Placement | Local, on the facilitator, or on a peer; default `['self']` for `comm` and `time`; `data`/`task` route by unification like a request | DG §8.2 | Same, including the consequence that an unaddressed time trigger never fires | reconstructed |
 | Duration | `recurrence(when)` (default, fires once), `whenever`, or a positive integer count | DG §8.4 | Same | reconstructed |
 | Actions | An `oaa_Solve/1,2` or `oaa_Interpret/1,2` term; bare goal accepted for backwards compatibility; `reply` defaults to `none` inside a trigger | DG §8.5 | Same, incl. the changed default | reconstructed |
 | Task triggers | Require a `trigger`-type solvable. **The 2.x library does not check the condition** — application code must, and calls `oaa_CheckTriggers/3`. `app_setup_trigger` notifies the agent that one was installed. Differs from 1.x | DG §8.3 | Same, and document the 1.x/2.x divergence | reconstructed |

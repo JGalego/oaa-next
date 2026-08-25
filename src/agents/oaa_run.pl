@@ -7,7 +7,8 @@
 :- module(oaa_run,
           [ oaa_agent_start/3,          % +Name, +Solvables, +Options
             oaa_agent_run/3,            % +Name, +Solvables, +Options
-            oaa_agent_loop/0
+            oaa_agent_loop/0,
+            oaa_agent_loop_once/0
           ]).
 
 :- use_module('../runtime/com_tcp').
@@ -69,3 +70,13 @@ oaa_agent_run(Name, Solvables, Options) :-
 
 oaa_agent_loop :-
     oaa_main_loop([handler(oaa_agent:oaa_handle_event)]).
+
+%!  oaa_agent_loop_once is det.
+%
+%   One turn of the agent's event loop.  An agent that has its own waiting to
+%   do -- polling for a condition, driving a script -- turns the loop by hand
+%   with this rather than calling oaa_main_loop directly, which would install
+%   the default handler and leave incoming requests unanswered.
+
+oaa_agent_loop_once :-
+    oaa_main_loop([handler(oaa_agent:oaa_handle_event), once(true)]).

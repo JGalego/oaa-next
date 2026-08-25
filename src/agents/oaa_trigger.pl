@@ -11,7 +11,11 @@
             oaa_triggers/1,             % -Triggers
             oaa_trigger_clear/0,
             oaa_note_data_change/2,     % +Operation, +Clause
-            oaa_note_event/3            % +Direction, +From, +Event
+            oaa_note_event/3,           % +Direction, +From, +Event
+            oaa_install_trigger/4,      % +Type, +Condition, +Action, +Params
+            trigger_is_local/2,         % +Type, +Params
+            oaa_fire_trigger/1,         % +Trigger
+            oaa_replace_trigger_condition/2 % +Trigger, +NewCondition
           ]).
 
 :- use_module('../icl/icl_term').
@@ -74,12 +78,52 @@ next_trigger_id(Id) :-
 %                            `whenever`, or a positive integer count
 %     * address(A)        -- where to install it; handled by the caller
 
-oaa_add_trigger(Type, Condition, Action, Params) :-
+%   Where a trigger goes.  Developer's Guide 8.2: comm and time triggers
+%   default to the installing agent itself, while data and task triggers with
+%   no address are routed by the facilitator, which treats the condition as a
+%   goal and picks agents whose solvables match it.
+%
+%   Note what that means for time triggers: their default is `self`, and no
+%   agent library implements them, so a time trigger left at its default never
+%   fires.  It has to be addressed to an agent that provides them -- the Alarm
+%   agent.  That is historical behaviour, not an oversight here.
+
+trigger_is_local(Type, Params) :-
+    (   icl_get_param_value(address(A), Params)
+    ->  local_address(A)
+    ;   memberchk(Type, [comm, time])
+    ).
+
+local_address(self) :- !.
+local_address([self]) :- !.
+local_address(A) :- is_list(A), memberchk(self, A), !.
+
+%!  oaa_install_trigger(+Type, +Condition, +Action, +Params) is det.
+%
+%   Install a trigger on this agent, whether it was asked for locally or
+%   arrived from the facilitator on another agent's behalf.
+
+oaa_install_trigger(Type, Condition, Action, Params) :-
     next_trigger_id(Id),
     oaa_data_add(self, oaa_trigger(Type, Condition, Action, Params, Id), [], _),
     (   Type == task,
         oaa_callback(app_setup_trigger, Closure)
     ->  ignore(call(Closure, Type, Condition, Action, Params))
+    ;   true
+    ).
+
+oaa_add_trigger(Type, Condition, Action, Params) :-
+    (   trigger_is_local(Type, Params)
+    ->  oaa_install_trigger(Type, Condition, Action, Params)
+    ;   route_trigger(add, Type, Condition, Action, Params)
+    ).
+
+%   Installing a trigger elsewhere is routed by the facilitator, using the
+%   same unification-based agent selection as a request or a data update.
+
+route_trigger(Mode, Type, Condition, Action, Params) :-
+    (   oaa_callback(trigger_route, Closure)
+    ->  ignore(call(Closure, Mode, Type, Condition, Action, Params))
     ;   true
     ).
 
@@ -89,7 +133,13 @@ oaa_add_trigger(Type, Condition, Action, Params) :-
 %   action unify with those given.  Params takes no part in the selection,
 %   which the Developer's Guide states explicitly.
 
-oaa_remove_trigger(Type, Condition, Action, _Params) :-
+oaa_remove_trigger(Type, Condition, Action, Params) :-
+    (   trigger_is_local(Type, Params)
+    ->  remove_local_trigger(Type, Condition, Action)
+    ;   route_trigger(remove, Type, Condition, Action, Params)
+    ).
+
+remove_local_trigger(Type, Condition, Action) :-
     (   oaa_data_query(oaa_trigger(Type, Condition, Action, P, Id))
     ->  oaa_data_remove(self, oaa_trigger(Type, Condition, Action, P, Id), [], _)
     ;   true
@@ -306,5 +356,26 @@ decrement_recurrence(Id, R) :-
 remove_by_id(Id) :-
     (   oaa_data_query(oaa_trigger(T, C, A, P, Id))
     ->  oaa_data_remove(self, oaa_trigger(T, C, A, P, Id), [], _)
+    ;   true
+    ).
+
+%!  oaa_fire_trigger(+Trigger) is det.
+%
+%   Run an installed trigger's action and apply its recurrence rule.  An agent
+%   that decides for itself when a trigger is due -- the Alarm agent, for time
+%   triggers -- calls this once it has decided.
+
+oaa_fire_trigger(oaa_trigger(_Type, Condition, Action, Params, Id)) :-
+    fire(Condition, Action, Params, Id).
+
+%!  oaa_replace_trigger_condition(+Trigger, +NewCondition) is det.
+%
+%   Move an installed trigger on to a new condition, keeping its identity.
+%   A recurring time trigger uses this to advance to its next occurrence.
+
+oaa_replace_trigger_condition(oaa_trigger(Type, Cond, Action, Params, Id), New) :-
+    (   oaa_data_query(oaa_trigger(Type, Cond, Action, Params, Id))
+    ->  oaa_data_remove(self, oaa_trigger(Type, Cond, Action, Params, Id), [], _),
+        oaa_data_add(self, oaa_trigger(Type, New, Action, Params, Id), [], _)
     ;   true
     ).

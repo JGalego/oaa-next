@@ -21,6 +21,7 @@
 :- use_module('../agents/oaa_solvable').
 :- use_module('../agents/oaa_agent').
 :- use_module('../agents/oaa_data').
+:- use_module('../agents/oaa_trigger').
 :- use_module(fac_delegate).
 :- use_module(fac_compound).
 
@@ -230,6 +231,8 @@ handle(ConnId, ev_post_declare(Mode, Solvables, Params)) :- !,
     post_declare(ConnId, Mode, Solvables, Params).
 handle(ConnId, ev_update_data(GoalId, Mode, Payload, Params)) :- !,
     update_data(ConnId, GoalId, Mode, Payload, Params).
+handle(ConnId, ev_update_trigger(GoalId, Mode, Type, Cond, Action, Params)) :- !,
+    update_trigger(ConnId, GoalId, Mode, Type, Cond, Action, Params).
 handle(ConnId, ev_data_applied(FacGoalId, Ok)) :- !,
     data_provider_replied(ConnId, FacGoalId, Ok).
 handle(_ConnId, _Event).
@@ -797,6 +800,39 @@ update_data(ConnId, GoalId, Mode, Payload, Params) :-
 
 probe_of(replace, replace(C1, _), C1) :- !.
 probe_of(_, Clause, Clause).
+
+%   Trigger installation is routed like everything else: treat the condition
+%   as a goal and select the agents whose solvables unify with it.  A data
+%   trigger wants a data solvable, a task trigger a solvable of type trigger.
+%   Developer's Guide 8.2.
+
+update_trigger(ConnId, GoalId, Mode, Type, Cond, Action, Params) :-
+    requester_id(ConnId, RequesterId),
+    fac_registry(Registry),
+    fac_select(Cond, Registry, Params, RequesterId, Candidates),
+    restrict_to_address(Candidates, Params, RequesterId, Selected),
+    include(trigger_capable(Type, Cond), Selected, Targets),
+    forall(member(candidate(Id, _, _), Targets),
+           route_trigger_op(Id, GoalId, Mode, Type, Cond, Action, Params,
+                            RequesterId)).
+
+trigger_capable(data, _Cond, candidate(_, S, _)) :- !,
+    solvable_type(S, data).
+trigger_capable(task, _Cond, candidate(_, S, _)) :- !,
+    solvable_type(S, trigger).
+trigger_capable(_Type, _Cond, _Candidate).
+
+route_trigger_op(0, _GoalId, Mode, Type, Cond, Action, Params, _Owner) :- !,
+    (   Mode == add
+    ->  oaa_install_trigger(Type, Cond, Action, Params)
+    ;   oaa_remove_trigger(Type, Cond, Action, [address(self)])
+    ).
+route_trigger_op(Id, GoalId, Mode, Type, Cond, Action, Params, Owner) :-
+    icl_param_merge([from(Owner)], Params, P2),
+    (   agent_entry(Target, Id, _, _, _, _)
+    ->  com_send(Target, ev_update_trigger(GoalId, Mode, Type, Cond, Action, P2))
+    ;   true
+    ).
 
 route_data_op(0, _GoalId, Mode, Payload, Params, ConnId) :- !,
     requester_id(ConnId, Owner),
