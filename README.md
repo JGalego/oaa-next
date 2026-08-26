@@ -33,9 +33,9 @@ The question the project exists to answer:
 
 ## Contents
 
-- [Architecture](#architecture)
-- [Getting started](#getting-started)
+- [Getting Started](#getting-started)
 - [LLM mode](#llm-mode)
+- [Architecture](#architecture)
 - [Status](#status)
 - [Historical Source Code](#historical-source-code)
 - [Documentation](#documentation)
@@ -43,54 +43,7 @@ The question the project exists to answer:
 - [License](#license)
 - [Trademark and affiliation](#trademark-and-affiliation)
 
-## Architecture
-
-The blue side is vanilla OAA and remains the system's core. The purple,
-dashed side contains optional additions introduced by OAA Next; each one
-joins as an ordinary agent or translates at the edge instead of replacing
-ICL, capability matching, or Facilitator delegation.
-
-```mermaid
-flowchart LR
-  subgraph classic["Vanilla OAA — preserved architecture"]
-    direction LR
-    clients["Client and UI agents"]
-    facilitator(("Facilitator"))
-    services["Capability agents"]
-    semantics["Solvables · data · triggers · compound goals"]
-
-    clients <-->|"ICL over TCP"| facilitator
-    facilitator <-->|"Delegated goals and results"| services
-    semantics -.- facilitator
-  end
-
-  subgraph additions["OAA Next — optional additions"]
-    direction TB
-    llm["LLM agent and meta-agent"]
-    providers["Scripted · OpenAI-compatible · Anthropic"]
-    bridges["MCP and A2A edge adapters"]
-    browser["Browser UI agent"]
-
-    providers --> llm
-  end
-
-  llm <-->|"Ordinary ICL agent"| facilitator
-  bridges <-->|"Translate at the edge"| facilitator
-  browser <-->|"Ordinary ICL agent"| facilitator
-
-  classDef original fill:#e8f1f8,stroke:#247f9e,color:#17212b,stroke-width:2px
-  classDef modern fill:#f1e8f5,stroke:#783c96,color:#24172b,stroke-width:2px
-  class clients,facilitator,services,semantics original
-  class llm,providers,bridges,browser modern
-  style classic fill:#f7fafc,stroke:#247f9e,stroke-width:2px
-  style additions fill:#fcf8fd,stroke:#783c96,stroke-width:2px,stroke-dasharray:6 4
-```
-
-SWI-Prolog and the current transport/process libraries modernize the
-implementation; they do not add a second architecture. See the
-[architecture guide](docs/guide/architecture.md) for the full lifecycle.
-
-## Getting started
+## Getting Started
 
 ### Prerequisites
 
@@ -219,6 +172,109 @@ out of source files and Git; hosted API usage may incur charges.
 
 See [`docs/guide/llm-agents.md`](docs/guide/llm-agents.md) for provider
 internals, the meta-agent integration, and architectural boundaries.
+
+
+## Architecture
+
+The diagram follows a request below the agent API, onto the wire, through
+Facilitator selection and compound-goal execution, and back by `GoalId`.
+Module names correspond to directories under `src/`; the legend distinguishes
+preserved OAA contracts, modern implementations of those contracts, and code
+with no historical OAA equivalent.
+
+```mermaid
+flowchart LR
+    subgraph classic["Vanilla OAA community — preserved behavior"]
+        direction LR
+
+        subgraph agent["Ordinary agent process — requester and/or provider"]
+            direction TB
+            app["Application callback<br/>declared solvables"]
+            api["Agent API<br/>oaa_agent · oaa_solvable · oaa_data · oaa_trigger"]
+            store[("Local relational state<br/>ordered facts · trigger records")]
+            aloop["Priority event loop<br/>poll · queue · wait · dispatch<br/>oaa_event · oaa_run"]
+            aicl["ICL codec<br/>lex · parse · term · write · params"]
+            atcp["TCP framing and sockets<br/>com_tcp"]
+
+            app <-->|"callback / solution"| api
+            api <--> store
+            api <-->|"send / nested wait"| aloop
+            aloop <--> aicl
+            aicl <--> atcp
+        end
+
+        subgraph fac["Facilitator process — itself an OAA agent"]
+            direction TB
+            ftcp["TCP framing and sockets<br/>com_tcp"]
+            ficl["ICL codec<br/>event envelope ↔ ICL term"]
+            floop["Priority event loop<br/>decode · enqueue · dispatch"]
+            registry[("Live capability registry<br/>agent_data/6 · solvables · listeners")]
+            delegate["Delegation pipeline — fac_delegate<br/>unify → type/permission filter<br/>→ utility order → optional meta hook"]
+            compound["Compound planner — fac_compound<br/>branch queue · shared bindings<br/>conjunct-by-conjunct dispatch"]
+            replies["GoalId continuations<br/>collect solutions · relay replies"]
+
+            ftcp <--> ficl
+            ficl <--> floop
+            floop -->|"connect · register · ready"| registry
+            floop -->|"ev_solve"| delegate
+            delegate -->|"candidate lookup"| registry
+            delegate <--> compound
+            delegate -->|"dispatch ev_solve"| floop
+            floop -->|"ev_solved"| replies
+            replies -->|"next branch / final result"| delegate
+        end
+
+        atcp <-->|"event(Content, Params).<br/>ICL over TCP"| ftcp
+    end
+
+    subgraph next["OAA Next — new, optional edge components"]
+        direction TB
+        ui["Browser UI agent<br/>HTTP actions ↔ OAA calls"]
+        interop["MCP server / A2A bridge<br/>tool or skill ↔ oaa_Solve"]
+        json["ICL ↔ JSON projection<br/>icl_json"]
+        llm["LLM agent / LLM meta-agent<br/>interpret · propose_goal · prioritize"]
+        provider["Provider interface<br/>scripted · OpenAI-compatible · Anthropic"]
+
+        interop <--> json
+        llm --> provider
+    end
+
+    browser["Web browser"] -. "HTTP" .-> ui
+    clients["MCP / A2A clients"] -. "JSON-RPC / A2A" .-> interop
+    models["Hosted or local models"] -. "provider API" .-> provider
+
+    ui <-->|"ordinary agent API + ICL"| ftcp
+    interop <-->|"ordinary agent API + ICL"| ftcp
+    llm <-->|"ordinary agent API + ICL"| ftcp
+
+    subgraph legend["Legend"]
+        direction TB
+        lv["Vanilla OAA behavior / interface"]
+        lm["Modern SWI-Prolog implementation<br/>of a vanilla OAA contract"]
+        ln["New optional OAA Next component"]
+        le["External system"]
+    end
+
+    classDef vanilla fill:#e8f1f8,stroke:#247f9e,color:#17212b,stroke-width:2px
+    classDef modernized fill:#e8f5ef,stroke:#237a3b,color:#15261b,stroke-width:2px
+    classDef new fill:#f1e8f5,stroke:#783c96,color:#24172b,stroke-width:2px
+    classDef external fill:#f1f3f5,stroke:#6b7280,color:#1f2937,stroke-width:1px
+
+    class app,api,store,aicl,ficl,registry,delegate,compound,replies,lv vanilla
+    class aloop,atcp,floop,ftcp,lm modernized
+    class ui,interop,json,llm,provider,ln new
+    class browser,clients,models,le external
+
+    style classic fill:#f8fbfd,stroke:#247f9e,stroke-width:3px
+    style next fill:#fcf8fd,stroke:#783c96,stroke-width:3px,stroke-dasharray:8 5
+    style legend fill:#ffffff,stroke:#9ca3af,stroke-width:1px
+```
+
+Every purple component enters through the same agent API and ICL wire path as
+a classic agent; none is imported by the historical core in `OAA_CLASSIC`
+mode. Direct agent connections and Facilitator hierarchies reuse the same
+wire stack and are omitted here for readability. See the
+[architecture guide](docs/guide/architecture.md) for the full lifecycle.
 
 ## Status
 
