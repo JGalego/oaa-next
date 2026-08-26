@@ -33,6 +33,7 @@ The question the project exists to answer:
 
 ## Contents
 
+- [Architecture](#architecture)
 - [Getting started](#getting-started)
 - [LLM mode](#llm-mode)
 - [Status](#status)
@@ -41,6 +42,53 @@ The question the project exists to answer:
 - [Repository layout](#repository-layout)
 - [License](#license)
 - [Trademark and affiliation](#trademark-and-affiliation)
+
+## Architecture
+
+The blue side is vanilla OAA and remains the system's core. The purple,
+dashed side contains optional additions introduced by OAA Next; each one
+joins as an ordinary agent or translates at the edge instead of replacing
+ICL, capability matching, or Facilitator delegation.
+
+```mermaid
+flowchart LR
+  subgraph classic["Vanilla OAA — preserved architecture"]
+    direction LR
+    clients["Client and UI agents"]
+    facilitator(("Facilitator"))
+    services["Capability agents"]
+    semantics["Solvables · data · triggers · compound goals"]
+
+    clients <-->|"ICL over TCP"| facilitator
+    facilitator <-->|"Delegated goals and results"| services
+    semantics -.- facilitator
+  end
+
+  subgraph additions["OAA Next — optional additions"]
+    direction TB
+    llm["LLM agent and meta-agent"]
+    providers["Scripted · OpenAI-compatible · Anthropic"]
+    bridges["MCP and A2A edge adapters"]
+    browser["Browser UI agent"]
+
+    providers --> llm
+  end
+
+  llm <-->|"Ordinary ICL agent"| facilitator
+  bridges <-->|"Translate at the edge"| facilitator
+  browser <-->|"Ordinary ICL agent"| facilitator
+
+  classDef original fill:#e8f1f8,stroke:#247f9e,color:#17212b,stroke-width:2px
+  classDef modern fill:#f1e8f5,stroke:#783c96,color:#24172b,stroke-width:2px
+  class clients,facilitator,services,semantics original
+  class llm,providers,bridges,browser modern
+  style classic fill:#f7fafc,stroke:#247f9e,stroke-width:2px
+  style additions fill:#fcf8fd,stroke:#783c96,stroke-width:2px,stroke-dasharray:6 4
+```
+
+SWI-Prolog and the current transport/process libraries modernize the
+implementation; they do not add a second architecture. See the
+[architecture guide](docs/guide/architecture.md) for the full lifecycle.
 
 ## Getting started
 
@@ -101,20 +149,9 @@ natural-language agent, and the browser UI. It prints a local URL; open it in
 your browser, click **Do It**, then simulate mail about **security**. The
 installed trigger routes the matching message to the telephone agent.
 
-<table>
-  <thead>
-    <tr>
-      <th>Original (1997)</th>
-      <th>OAA Next (2026)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center" width="50%"><img src="docs/assets/office-assistant-demo-1997.gif" width="320" alt="Excerpt from Adam Cheyer's original OAA Office Assistant demonstration"></td>
-      <td align="center" width="50%"><img src="docs/assets/office-assistant-demo.gif" width="320" alt="oaa-next Office Assistant installing a mail trigger and delivering matching mail by telephone"></td>
-    </tr>
-  </tbody>
-</table>
+<p align="center">
+  <img src="docs/assets/office-assistant-comparison.gif" alt="Adam Cheyer's original 1997 OAA Office Assistant and the 2026 oaa-next recreation running side by side">
+</p>
 
 The historical excerpt is from Adam Cheyer's original Office Assistant video;
 the modern demo recreates its documented trigger pattern with a new,
