@@ -1,8 +1,9 @@
 <p align="center">
-  <img src="docs/assets/oaa-logo-classic-sliding-puzzle.gif" width="150" alt="Classic OAA artwork"><br><img src="docs/assets/oaa-next-logo.svg" width="300" height="68" alt="OAA Next">
+  <img src="docs/assets/oaa-next-logo.svg" width="300" height="68" alt="OAA Next">
 </p>
 
-<p align="center"><strong>Classic agent architecture, modern reasoning.</strong></p>
+<p align="center"><strong>Old-school multi-agent architecture is back for another round.
+</strong></p>
 
 <p align="center">
   <a href="https://github.com/JGalego/oaa-next/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JGalego/oaa-next/actions/workflows/ci.yml/badge.svg?branch=main"></a>
@@ -12,7 +13,7 @@
   <img alt="OAA modes: Classic and LLM" src="https://img.shields.io/badge/modes-Classic%20%7C%20LLM-5b6278.svg">
 </p>
 
-An independent reimplementation and modernization of SRI International's [Open
+This project is an independent reimplementation and modernization of SRI International's [Open
 Agent Architecture](https://web.archive.org/web/20071018083337/https://www.ai.sri.com/~oaa) (OAA), extended to support LLM-based agents.
 
 The aim is to rebuild the original architecture and developer experience as
@@ -25,6 +26,10 @@ The question the project exists to answer:
 > What does the original Open Agent Architecture look like when rebuilt
 > faithfully with modern implementations, and given an LLM as a reasoning
 > substrate?
+
+<p align="center">
+  <img src="docs/assets/oaa-logo-classic-sliding-puzzle.gif" width="150" alt="Classic OAA artwork">
+</p>
 
 ## Contents
 
@@ -96,9 +101,25 @@ natural-language agent, and the browser UI. It prints a local URL; open it in
 your browser, click **Do It**, then simulate mail about **security**. The
 installed trigger routes the matching message to the telephone agent.
 
-<p align="center">
-  <img src="docs/assets/office-assistant-demo.gif" width="640" alt="Office Assistant demo installing a mail trigger and delivering matching mail by telephone">
-</p>
+<table>
+  <thead>
+    <tr>
+      <th>Original OAA Office Assistant (filmed 1997)</th>
+      <th>oaa-next Office Assistant</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td width="50%"><img src="docs/assets/office-assistant-demo-1997.gif" width="320" alt="Excerpt from Adam Cheyer's original OAA Office Assistant demonstration"></td>
+      <td width="50%"><img src="docs/assets/office-assistant-demo.gif" width="320" alt="oaa-next Office Assistant installing a mail trigger and delivering matching mail by telephone"></td>
+    </tr>
+  </tbody>
+</table>
+
+The historical excerpt is from Adam Cheyer's original Office Assistant video;
+the modern demo recreates its documented trigger pattern with a new,
+self-contained implementation. See the [research notes](research/office-demo.md)
+for provenance and the boundary between historical evidence and reconstruction.
 
 The demo is self-contained: it makes no external LLM request and requires no
 API key. Press `Ctrl-C` in the terminal to stop the community.
