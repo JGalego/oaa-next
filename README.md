@@ -104,14 +104,14 @@ installed trigger routes the matching message to the telephone agent.
 <table>
   <thead>
     <tr>
-      <th>Original OAA Office Assistant (filmed 1997)</th>
-      <th>oaa-next Office Assistant</th>
+      <th>Original (1997)</th>
+      <th>OAA Next (2026)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td width="50%"><img src="docs/assets/office-assistant-demo-1997.gif" width="320" alt="Excerpt from Adam Cheyer's original OAA Office Assistant demonstration"></td>
-      <td width="50%"><img src="docs/assets/office-assistant-demo.gif" width="320" alt="oaa-next Office Assistant installing a mail trigger and delivering matching mail by telephone"></td>
+      <td align="center" width="50%"><img src="docs/assets/office-assistant-demo-1997.gif" width="320" alt="Excerpt from Adam Cheyer's original OAA Office Assistant demonstration"></td>
+      <td align="center" width="50%"><img src="docs/assets/office-assistant-demo.gif" width="320" alt="oaa-next Office Assistant installing a mail trigger and delivering matching mail by telephone"></td>
     </tr>
   </tbody>
 </table>
